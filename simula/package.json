@@ -1,0 +1,11 @@
+{
+  "name": "simula",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "backend": "cd backend && uvicorn app.main:app --reload --port 8000",
+    "setup": "cd frontend && npm install"
+  }
+}

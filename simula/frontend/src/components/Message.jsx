@@ -1,0 +1,85 @@
+import React from 'react'
+import { AlertCircle, Terminal } from 'lucide-react'
+import { SchemaCard } from './SchemaCard'
+import { ScoreCard } from './ScoreCard'
+import { QuestionsPanel } from './QuestionsPanel'
+import { STAGE } from '../hooks/useChat'
+
+export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, loading }) {
+  if (msg.role === 'user') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <div style={{
+          maxWidth: '72%',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg) var(--radius-lg) 2px var(--radius-lg)',
+          padding: '9px 13px',
+          fontSize: 13, lineHeight: 1.6, color: 'var(--text)',
+        }}>
+          {msg.content}
+        </div>
+      </div>
+    )
+  }
+
+  if (msg.role === 'error') {
+    return (
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'flex-start',
+        color: '#f87171', fontSize: 12, marginBottom: 16,
+        padding: '8px 10px',
+        background: 'rgba(248,113,113,0.08)',
+        border: '1px solid rgba(248,113,113,0.2)',
+        borderRadius: 'var(--radius)',
+      }}>
+        <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+        {msg.content}
+      </div>
+    )
+  }
+
+  if (msg.role === 'data') {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <ScoreCard result={msg.content} />
+      </div>
+    )
+  }
+
+  // System message
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
+        <div style={{
+          width: 20, height: 20, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(77,217,172,0.3), rgba(77,217,172,0.1))',
+          border: '1px solid var(--teal-border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, marginTop: 1,
+        }}>
+          <Terminal size={9} color="var(--teal)" />
+        </div>
+        <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>
+          {msg.content}
+        </span>
+      </div>
+
+      {/* Attach interactive panels to the last system message based on stage */}
+      {stage === STAGE.QUESTIONS && questions?.length > 0 && (
+        <QuestionsPanel
+          questions={questions}
+          onSubmit={onAnswers}
+          loading={loading}
+        />
+      )}
+      {stage === STAGE.SCHEMA && schema && (
+        <SchemaCard
+          schema={schema}
+          onConfirm={onConfirm}
+          loading={loading}
+        />
+      )}
+    </div>
+  )
+}
