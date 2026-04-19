@@ -19,5 +19,6 @@ backend/.env
 backend/app/domain_embeddings.json
 
 # OS
-.DS_Store
 Thumbs.db
+.DS_Store
+**/.DS_Store
