@@ -5,13 +5,15 @@
 ## Structure
 
 ```
-simula/
-  frontend/          React + Vite chat interface
-  backend/           FastAPI data generation engine
-  package.json       Root scripts
+frontend/          React + Vite chat interface
+backend/           FastAPI data generation engine
+package.json       Root scripts
+render.yaml        Render deploy config
 ```
 
 ## Local setup (10 minutes)
+
+Run all commands from the repository root.
 
 ### 1. Clone and install frontend
 ```bash
