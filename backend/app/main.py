@@ -16,6 +16,8 @@ Endpoints:
   POST /api/repair               → repair uploaded CSV
   GET  /api/cache/stats          → cache hit/miss stats (debug)
 """
+from dotenv import load_dotenv
+load_dotenv()
 
 import logging
 import io
@@ -115,11 +117,24 @@ async def chat(req: ChatRequest):
     if not req.prompt or len(req.prompt.strip()) < 5:
         raise HTTPException(status_code=400, detail="Prompt too short — describe your project.")
 
-    result = await run_schema_pipeline(
-        user_prompt=req.prompt.strip(),
-        user_answers_text=req.user_answers,
-        prior_questions=req.prior_questions,
-    )
+    try:
+        result = await run_schema_pipeline(
+            user_prompt=req.prompt.strip(),
+            user_answers_text=req.user_answers,
+            prior_questions=req.prior_questions,
+        )
+    except RuntimeError as e:
+        err_text = str(e)
+        logger.warning(f"[API] LLM pipeline unavailable: {err_text}")
+
+        if "Rate limit" in err_text or "429" in err_text:
+            detail = "OpenRouter is rate-limited right now. Please retry in about a minute."
+        elif "OpenRouter 404" in err_text:
+            detail = err_text
+        else:
+            detail = "LLM provider is temporarily unavailable. Please retry shortly."
+
+        raise HTTPException(status_code=503, detail=detail)
 
     if result["stage"] == "questions_needed":
         return ChatResponse(

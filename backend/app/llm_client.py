@@ -32,10 +32,14 @@ class CallType(str, Enum):
     FALLBACK = "fallback"   # forced Llama path
 
 MODEL_MAP = {
-    CallType.CHAT:     "deepseek/deepseek-chat-v3-0324:free",
-    CallType.SCHEMA:   "qwen/qwen3-235b-a22b:free",
-    CallType.FALLBACK: "meta-llama/llama-4-maverick:free",
+    CallType.CHAT:     "meta-llama/llama-3.3-70b-instruct:free",
+    CallType.SCHEMA:   "nvidia/nemotron-3-super-120b-a12b:free",
+    CallType.FALLBACK: "google/gemma-3-27b-it:free",
 }
+
+
+class OpenRouterRateLimitError(RuntimeError):
+    """Raised when OpenRouter is rate-limited and no fallback call remains."""
 
 TIMEOUT_MAP = {
     CallType.CHAT:     10.0,
@@ -82,7 +86,11 @@ async def call_llm(
             logger.warning(f"[LLM] {model} rate-limited ({resp.status_code}). Falling back.")
             if _retry and call_type != CallType.FALLBACK:
                 return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
-            raise RuntimeError(f"Rate limit on fallback model: {resp.status_code}")
+            raise OpenRouterRateLimitError(f"Rate limit on fallback model: {resp.status_code}")
+
+        if resp.status_code == 404:
+            logger.error(f"[LLM] Model ID not found on OpenRouter: {model} — update MODEL_MAP in llm_client.py")
+            raise RuntimeError(f"OpenRouter 404: model '{model}' does not exist. Update MODEL_MAP.")
 
         resp.raise_for_status()
         data = resp.json()
@@ -93,6 +101,12 @@ async def call_llm(
         if _retry and call_type != CallType.FALLBACK:
             return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
         raise RuntimeError("All models timed out.")
+
+    except OpenRouterRateLimitError:
+        raise
+
+    except RuntimeError:
+        raise
 
     except Exception as e:
         logger.error(f"[LLM] Unexpected error with {model}: {e}")

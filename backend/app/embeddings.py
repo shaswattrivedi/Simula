@@ -18,6 +18,7 @@ Model: BAAI/bge-large-en-v1.5
 import os
 import json
 import math
+import re
 import httpx
 import logging
 from pathlib import Path
@@ -52,6 +53,29 @@ DOMAIN_TEMPLATES = {
     "biometric_auth":       "fingerprint face recognition gait keystroke behavioral biometrics authentication",
     "environmental":        "weather station rainfall wind speed flood detection climate time series",
 }
+
+
+def _tokenize(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9_]+", text.lower()))
+
+
+def _keyword_domain_hints(user_prompt: str, top_k: int = 2) -> list[str]:
+    """
+    Lightweight local fallback when HF embeddings are unavailable.
+    Scores domain templates by token overlap with the user prompt.
+    """
+    prompt_terms = _tokenize(user_prompt)
+    if not prompt_terms:
+        return []
+
+    scored: list[tuple[str, int]] = []
+    for domain, template in DOMAIN_TEMPLATES.items():
+        overlap = len(prompt_terms.intersection(_tokenize(template)))
+        if overlap > 0:
+            scored.append((domain, overlap))
+
+    ranked = sorted(scored, key=lambda x: x[1], reverse=True)
+    return [domain for domain, _ in ranked[:top_k]]
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -118,13 +142,15 @@ async def get_domain_hints(user_prompt: str, top_k: int = 2) -> list[str]:
     """
     domain_embeddings = _load_domain_embeddings()
     if not domain_embeddings:
-        logger.warning("[HF] No domain embeddings found — returning empty hints.")
-        return []
+        hints = _keyword_domain_hints(user_prompt, top_k=top_k)
+        logger.warning("[HF] No domain embeddings found — using keyword fallback hints.")
+        return hints
 
     user_embedding = await _embed_one(user_prompt)
     if user_embedding is None:
-        logger.warning("[HF] User embedding failed — skipping domain hints.")
-        return []
+        hints = _keyword_domain_hints(user_prompt, top_k=top_k)
+        logger.warning("[HF] User embedding failed — using keyword fallback hints.")
+        return hints
 
     scores = {
         domain: _cosine(user_embedding, emb)
