@@ -45,9 +45,25 @@ async def lifespan(app: FastAPI):
     Strategy 4 activation: pre-compute all 20 domain embeddings at startup.
     20 HF API calls — runs ONCE, result saved to domain_embeddings.json.
     Subsequent restarts skip this entirely if the file exists.
+
+    Also validates LLM connectivity with a single cheap call before serving traffic.
     """
     logger.info("[Startup] Precomputing domain embeddings…")
     await precompute_domain_embeddings()
+
+    # Validate LLM key/model once on startup to catch broken config early.
+    from app.llm_client import call_llm, CallType
+
+    try:
+        await call_llm(
+            [{"role": "user", "content": "respond with the word ready"}],
+            call_type=CallType.CHAT,
+            max_tokens=5,
+        )
+        logger.info("[Startup] LLM connection verified.")
+    except Exception as e:
+        logger.error(f"[Startup] LLM validation failed: {e}. Fix before sending user traffic.")
+
     logger.info("[Startup] Ready.")
     yield
 
