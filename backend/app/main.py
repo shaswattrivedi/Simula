@@ -97,6 +97,10 @@ class GenerateRequest(BaseModel):
     schema: dict
     row_count: int | None = None   # Override recommended_rows if provided
 
+class ScoreCsvRequest(BaseModel):
+    schema: dict
+    csv_data: str
+
 class ChatResponse(BaseModel):
     stage: str                     # "questions_needed" | "schema_ready"
     questions: list[dict] | None = None
@@ -105,6 +109,21 @@ class ChatResponse(BaseModel):
     mode: str = "simulate"
     api_calls_made: int = 0
     message: str = ""
+
+
+def _build_scoring_summary(scoring_result: dict, schema: dict) -> str:
+    if scoring_result.get("error"):
+        return (
+            f"Scoring could not be completed reliably: {scoring_result['error']} "
+            "Edit the schema label column/class balance and retry scoring."
+        )
+
+    return build_result_summary(
+        score=scoring_result["learnability_score"],
+        best_model=scoring_result["best_model"],
+        task_type=scoring_result["task_type"],
+        schema_name=schema.get("schema_name", "dataset"),
+    )
 
 
 # ── ENDPOINTS ─────────────────────────────────────────────────────────────────
@@ -287,14 +306,37 @@ async def score_dataset(req: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scoring failed: {str(e)}")
 
-    # Strategy 3: Template summary — 0 LLM calls
-    summary = build_result_summary(
-        score=scoring_result["learnability_score"],
-        best_model=scoring_result["best_model"],
-        task_type=scoring_result["task_type"],
-        schema_name=schema.get("schema_name", "dataset"),
-    )
+    summary = _build_scoring_summary(scoring_result, schema)
 
+    return {**scoring_result, "summary": summary}
+
+
+@app.post("/api/score/csv")
+async def score_csv_dataset(req: ScoreCsvRequest):
+    """
+    Run learnability scoring against an exact CSV payload (same generated dataset).
+    Useful for true re-scoring without regenerating random samples.
+    """
+    import pandas as pd
+    from app.scoring import run_scoring
+
+    if not req.csv_data or not req.csv_data.strip():
+        raise HTTPException(status_code=400, detail="CSV payload is empty.")
+
+    if len(req.csv_data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="CSV payload too large for scoring endpoint.")
+
+    try:
+        df = pd.read_csv(io.StringIO(req.csv_data))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid CSV payload: {str(e)}")
+
+    try:
+        scoring_result = run_scoring(df, req.schema)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scoring failed: {str(e)}")
+
+    summary = _build_scoring_summary(scoring_result, req.schema)
     return {**scoring_result, "summary": summary}
 
 

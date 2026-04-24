@@ -1,50 +1,39 @@
 """
-LLM Client — OpenRouter model routing with fallback chain.
-
-Model assignment per call type:
-  chat / intent / questions  → DeepSeek Chat v3   (fast, tool-calling)
-  schema_generation          → Qwen3-235B         (deep reasoning)
-  fallback (any)             → Llama-4-Maverick   (1M ctx, no rate risk)
-
-Strategies applied:
-  - Per-call model selection (never use heavy model for light tasks)
-  - Automatic 429 / 503 fallback to Llama
-  - Timeout per call type (chat=8s, schema=25s)
-  - Structured JSON output enforced via system prompt
+LLM Client — Cerebras API
+Free tier, no credit card, works in India.
+Endpoint is OpenAI-compatible.
+Models: llama-3.3-70b (primary), llama-3.1-8b (fallback)
+Rate limits: 30 RPM, 900 req/hour free
+Get key at: cloud.cerebras.ai
 """
 
 import os
 import httpx
 import json
-import asyncio
 import logging
 from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_KEY  = os.getenv("OPENROUTER_API_KEY", "")
+CEREBRAS_BASE = "https://api.cerebras.ai/v1/chat/completions"
+CEREBRAS_KEY  = os.getenv("CEREBRAS_API_KEY", "")
 
 class CallType(str, Enum):
-    CHAT     = "chat"       # intent classification, question generation
-    SCHEMA   = "schema"     # schema generation — Qwen3 only
-    FALLBACK = "fallback"   # forced Llama path
+    CHAT     = "chat"
+    SCHEMA   = "schema"
+    FALLBACK = "fallback"
 
 MODEL_MAP = {
-    CallType.CHAT:     "meta-llama/llama-3.3-70b-instruct:free",
-    CallType.SCHEMA:   "nvidia/nemotron-3-super-120b-a12b:free",
-    CallType.FALLBACK: "google/gemma-3-27b-it:free",
+    CallType.CHAT:     "llama-3.3-70b",
+    CallType.SCHEMA:   "llama-3.3-70b",
+    CallType.FALLBACK: "llama-3.1-8b",
 }
 
-
-class OpenRouterRateLimitError(RuntimeError):
-    """Raised when OpenRouter is rate-limited and no fallback call remains."""
-
 TIMEOUT_MAP = {
-    CallType.CHAT:     10.0,
-    CallType.SCHEMA:   30.0,
-    CallType.FALLBACK: 15.0,
+    CallType.CHAT:     20.0,
+    CallType.SCHEMA:   60.0,
+    CallType.FALLBACK: 20.0,
 }
 
 
@@ -55,42 +44,51 @@ async def call_llm(
     max_tokens: int = 1000,
     _retry: bool = True,
 ) -> str:
-    """
-    Single entry point for all OpenRouter calls.
-    Returns the assistant message content as a string.
-    Automatically falls back to Llama on 429/503/timeout.
-    """
+
+    if not CEREBRAS_KEY:
+        raise RuntimeError(
+            "CEREBRAS_API_KEY is not set. "
+            "Get a free key at cloud.cerebras.ai and add it to backend/.env"
+        )
+
     model   = MODEL_MAP[call_type]
     timeout = TIMEOUT_MAP[call_type]
 
     payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
+        "model":      model,
+        "messages":   messages,
         "max_tokens": max_tokens,
     }
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_KEY}",
+        "Authorization": f"Bearer {CEREBRAS_KEY}",
         "Content-Type":  "application/json",
-        "HTTP-Referer":  "https://dataforge.app",
-        "X-Title":       "DataForge",
     }
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(OPENROUTER_BASE, json=payload, headers=headers)
+            resp = await client.post(CEREBRAS_BASE, json=payload, headers=headers)
 
-        if resp.status_code == 429 or resp.status_code == 503:
-            logger.warning(f"[LLM] {model} rate-limited ({resp.status_code}). Falling back.")
+        if resp.status_code == 429:
+            logger.warning(f"[LLM] {model} rate-limited (429). Falling back.")
             if _retry and call_type != CallType.FALLBACK:
                 return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
-            raise OpenRouterRateLimitError(f"Rate limit on fallback model: {resp.status_code}")
+            raise RuntimeError("Rate limit hit. Wait 1 minute and retry.")
+
+        if resp.status_code == 503:
+            logger.warning(f"[LLM] {model} unavailable (503). Falling back.")
+            if _retry and call_type != CallType.FALLBACK:
+                return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
+            raise RuntimeError("LLM service unavailable. Try again shortly.")
 
         if resp.status_code == 404:
-            logger.error(f"[LLM] Model ID not found on OpenRouter: {model} — update MODEL_MAP in llm_client.py")
-            raise RuntimeError(f"OpenRouter 404: model '{model}' does not exist. Update MODEL_MAP.")
+            logger.error(f"[LLM] Model not found: {model}. Update MODEL_MAP in llm_client.py.")
+            raise RuntimeError(f"Model '{model}' not found. Update MODEL_MAP.")
+
+        if resp.status_code in (401, 403):
+            raise RuntimeError("Invalid CEREBRAS_API_KEY. Check backend/.env.")
 
         resp.raise_for_status()
         data = resp.json()
@@ -100,10 +98,7 @@ async def call_llm(
         logger.warning(f"[LLM] {model} timed out after {timeout}s. Falling back.")
         if _retry and call_type != CallType.FALLBACK:
             return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
-        raise RuntimeError("All models timed out.")
-
-    except OpenRouterRateLimitError:
-        raise
+        raise RuntimeError("LLM timed out. Try again.")
 
     except RuntimeError:
         raise
@@ -112,4 +107,4 @@ async def call_llm(
         logger.error(f"[LLM] Unexpected error with {model}: {e}")
         if _retry and call_type != CallType.FALLBACK:
             return await call_llm(messages, CallType.FALLBACK, json_mode, max_tokens, _retry=False)
-        raise
+        raise RuntimeError(f"LLM error: {e}")

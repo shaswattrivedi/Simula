@@ -60,6 +60,15 @@ def run_scoring(df: pd.DataFrame, schema: dict) -> dict:
 
     # Separate features and label
     feature_cols = [c for c in df.columns if c != label_col and c != "timestamp"]
+    if not feature_cols:
+        return {
+            "learnability_score": 0,
+            "best_model": "N/A",
+            "task_type": "unknown",
+            "model_scores": [],
+            "error": "No feature columns available for scoring."
+        }
+
     X = df[feature_cols].copy()
     y = df[label_col].copy()
 
@@ -75,11 +84,71 @@ def run_scoring(df: pd.DataFrame, schema: dict) -> dict:
     if is_classification:
         le = LabelEncoder()
         y  = le.fit_transform(y.astype(str))
-        cv = StratifiedKFold(n_splits=min(5, y.min() if len(y) > 10 else 3), shuffle=True, random_state=42)
+
+        n_classes = int(np.unique(y).size)
+        rows_used = int(len(y))
+        if n_classes < 2:
+            return {
+                "learnability_score": 0,
+                "best_model": "N/A",
+                "task_type": task_type,
+                "model_scores": [],
+                "rows_used": rows_used,
+                "features_used": len(feature_cols),
+                "error": "At least two classes are required for classification scoring. Your label currently has only one class.",
+            }
+
+        unique_ratio = n_classes / max(1, rows_used)
+        if n_classes > 50 and unique_ratio > 0.1:
+            return {
+                "learnability_score": 0,
+                "best_model": "N/A",
+                "task_type": task_type,
+                "model_scores": [],
+                "rows_used": rows_used,
+                "features_used": len(feature_cols),
+                "error": (
+                    "Label appears high-cardinality (ID-like): "
+                    f"{n_classes} unique classes across {rows_used} rows. "
+                    "Choose a target label with fewer repeated classes (e.g., alert_level/event_type)."
+                ),
+            }
+
+        class_counts = np.bincount(y)
+        min_class_count = int(class_counts.min()) if class_counts.size else 0
+        n_splits = min(5, min_class_count, len(y))
+
+        if n_splits < 2:
+            return {
+                "learnability_score": 0,
+                "best_model": "N/A",
+                "task_type": task_type,
+                "model_scores": [],
+                "rows_used": rows_used,
+                "features_used": len(feature_cols),
+                "error": (
+                    "Not enough samples per class for cross-validation. "
+                    f"Smallest class has {min_class_count} row(s); need at least 2 per class."
+                ),
+            }
+
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
         scoring = "f1_weighted"
     else:
         y  = pd.to_numeric(y, errors="coerce").fillna(0).values
-        cv = KFold(n_splits=5, shuffle=True, random_state=42)
+        n_splits = min(5, len(y))
+        if n_splits < 2:
+            return {
+                "learnability_score": 0,
+                "best_model": "N/A",
+                "task_type": task_type,
+                "model_scores": [],
+                "rows_used": len(df),
+                "features_used": len(feature_cols),
+                "error": "Not enough rows for regression cross-validation. Need at least 2 rows.",
+            }
+
+        cv = KFold(n_splits=n_splits, shuffle=True, random_state=42)
         scoring = "r2"
 
     # Scale features

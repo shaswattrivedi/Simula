@@ -41,13 +41,33 @@ def _generate_column(col_spec: dict, n: int) -> np.ndarray:
         data = stats.bernoulli.rvs(p=p, size=n).astype(float)
 
     elif dist == "categorical":
-        categories  = params.get("categories", ["A", "B", "C"])
-        weights     = params.get("weights", None)
-        if weights:
+        categories = params.get("categories", [])
+        # If no categories provided, generate sensible defaults from column name
+        if not categories:
+            col_name = col_spec.get("name", "value").lower()
+            if "id" in col_name:
+                categories = [f"{col_name.upper()}_{i:03d}" for i in range(1, 6)]
+            elif "status" in col_name or "state" in col_name:
+                categories = ["active", "inactive", "pending", "error"]
+            elif "level" in col_name or "risk" in col_name:
+                categories = ["low", "medium", "high", "critical"]
+            elif "type" in col_name:
+                categories = ["type_A", "type_B", "type_C"]
+            else:
+                categories = ["class_1", "class_2", "class_3"]
+        weights = params.get("weights", None)
+        if weights and len(weights) == len(categories):
             w = np.array(weights, dtype=float)
             weights = (w / w.sum()).tolist()
         data = np.random.choice(categories, size=n, p=weights)
-        return data  # Already string dtype — skip numeric cast below
+        return data
+
+    elif dist == "timestamp":
+        from datetime import datetime, timedelta
+        start = datetime(2024, 1, 1, 0, 0, 0)
+        freq_s = params.get("frequency_seconds", 1)
+        timestamps = [str(start + timedelta(seconds=i * freq_s)) for i in range(n)]
+        return np.array(timestamps)
 
     else:
         data = stats.norm.rvs(size=n)
