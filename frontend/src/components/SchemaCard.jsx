@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Edit2, RotateCcw } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Check, ChevronDown, ChevronUp, Edit2, RotateCcw, X } from 'lucide-react'
 
 const TYPE_COLORS = {
   float:     '#4dd9ac',
@@ -10,8 +10,67 @@ const TYPE_COLORS = {
   text:      '#f87171',
 }
 
+const TYPE_OPTIONS = ['float', 'int', 'category', 'boolean', 'timestamp', 'text']
+const DISTRIBUTIONS_BY_TYPE = {
+  float: ['normal', 'uniform', 'lognormal'],
+  int: ['poisson', 'normal', 'uniform'],
+  category: ['categorical'],
+  boolean: ['bernoulli'],
+  timestamp: ['uniform'],
+  text: ['categorical'],
+}
+
+const inputStyle = {
+  width: '100%',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  color: 'var(--text)',
+  fontSize: 11,
+  lineHeight: 1.3,
+  padding: '4px 6px',
+}
+
 function ColRow({ col, onChange }) {
   const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(col)
+
+  useEffect(() => {
+    setDraft(col)
+  }, [col])
+
+  const distributionOptions = DISTRIBUTIONS_BY_TYPE[draft.type] || ['normal']
+
+  const handleTypeChange = (nextType) => {
+    const allowed = DISTRIBUTIONS_BY_TYPE[nextType] || ['normal']
+    setDraft(prev => ({
+      ...prev,
+      type: nextType,
+      distribution: allowed.includes(prev.distribution) ? prev.distribution : allowed[0],
+    }))
+  }
+
+  const handleSave = () => {
+    const safeType = TYPE_OPTIONS.includes(draft.type) ? draft.type : 'float'
+    const safeDistOptions = DISTRIBUTIONS_BY_TYPE[safeType] || ['normal']
+    const safeDist = safeDistOptions.includes(draft.distribution) ? draft.distribution : safeDistOptions[0]
+
+    onChange({
+      ...draft,
+      name: (draft.name || '').trim() || col.name,
+      type: safeType,
+      distribution: safeDist,
+      notes: (draft.notes || '').trim(),
+      is_label: Boolean(draft.is_label),
+      nullable: Boolean(draft.nullable),
+    })
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setDraft(col)
+    setEditing(false)
+  }
 
   return (
     <div style={{
@@ -22,26 +81,88 @@ function ColRow({ col, onChange }) {
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       alignItems: 'center',
     }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: col.is_label ? 'var(--teal)' : 'var(--text)' }}>
-        {col.name}
-        {col.is_label && <span style={{ fontSize: 10, color: 'var(--teal)', marginLeft: 6, opacity: 0.7 }}>label</span>}
-      </span>
-      <span style={{
-        fontSize: 10, padding: '2px 6px', borderRadius: 3,
-        background: (TYPE_COLORS[col.type] || '#888') + '18',
-        color: TYPE_COLORS[col.type] || '#888',
-        fontFamily: 'var(--font-mono)',
-      }}>
-        {col.type}
-      </span>
-      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{col.distribution}</span>
-      <span style={{ fontSize: 11, color: 'var(--muted-2)', fontStyle: 'italic' }}>{col.notes}</span>
-      <button
-        onClick={() => setEditing(!editing)}
-        style={{ color: 'var(--muted-2)', padding: 2, borderRadius: 3, opacity: 0.6 }}
-      >
-        <Edit2 size={12} />
-      </button>
+      {editing ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              value={draft.name || ''}
+              onChange={(e) => setDraft(prev => ({ ...prev, name: e.target.value }))}
+              style={inputStyle}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontSize: 10 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(draft.is_label)}
+                onChange={(e) => setDraft(prev => ({ ...prev, is_label: e.target.checked }))}
+              />
+              label
+            </label>
+          </div>
+
+          <select
+            value={draft.type || 'float'}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            style={inputStyle}
+          >
+            {TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+
+          <select
+            value={draft.distribution || distributionOptions[0]}
+            onChange={(e) => setDraft(prev => ({ ...prev, distribution: e.target.value }))}
+            style={inputStyle}
+          >
+            {distributionOptions.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+
+          <input
+            value={draft.notes || ''}
+            onChange={(e) => setDraft(prev => ({ ...prev, notes: e.target.value }))}
+            style={inputStyle}
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={handleSave}
+              title="Save"
+              style={{ color: 'var(--teal)', padding: 2, borderRadius: 3, opacity: 0.9 }}
+            >
+              <Check size={12} />
+            </button>
+            <button
+              onClick={handleCancel}
+              title="Cancel"
+              style={{ color: '#fca5a5', padding: 2, borderRadius: 3, opacity: 0.9 }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: col.is_label ? 'var(--teal)' : 'var(--text)' }}>
+            {col.name}
+            {col.is_label && <span style={{ fontSize: 10, color: 'var(--teal)', marginLeft: 6, opacity: 0.7 }}>label</span>}
+          </span>
+          <span style={{
+            fontSize: 10, padding: '2px 6px', borderRadius: 3,
+            background: (TYPE_COLORS[col.type] || '#888') + '18',
+            color: TYPE_COLORS[col.type] || '#888',
+            fontFamily: 'var(--font-mono)',
+          }}>
+            {col.type}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{col.distribution}</span>
+          <span style={{ fontSize: 11, color: 'var(--muted-2)', fontStyle: 'italic' }}>{col.notes}</span>
+          <button
+            onClick={() => setEditing(true)}
+            title="Edit column"
+            style={{ color: 'var(--muted-2)', padding: 2, borderRadius: 3, opacity: 0.8 }}
+          >
+            <Edit2 size={12} />
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -50,8 +171,36 @@ export function SchemaCard({ schema, onConfirm, loading }) {
   const [open, setOpen] = useState(true)
   const [rowCount, setRowCount] = useState(schema.recommended_rows || 1000)
   const [localSchema, setLocalSchema] = useState(schema)
+  const [jsonEditOpen, setJsonEditOpen] = useState(false)
+  const [jsonDraft, setJsonDraft] = useState('')
+  const [jsonError, setJsonError] = useState('')
+  const hasColumns = Array.isArray(localSchema.columns) && localSchema.columns.length > 0
 
-  const handleConfirm = () => onConfirm(localSchema, rowCount)
+  const handleConfirm = () => {
+    if (!hasColumns || loading) return
+    onConfirm(localSchema, rowCount)
+  }
+
+  const openJsonEditor = () => {
+    setJsonDraft(JSON.stringify(localSchema, null, 2))
+    setJsonError('')
+    setJsonEditOpen(true)
+  }
+
+  const applyJsonEdits = () => {
+    try {
+      const parsed = JSON.parse(jsonDraft)
+      setLocalSchema(parsed)
+      if (Number.isFinite(Number(parsed?.recommended_rows))) {
+        const nextRows = Math.max(100, Math.min(50000, Number(parsed.recommended_rows)))
+        setRowCount(nextRows)
+      }
+      setJsonError('')
+      setJsonEditOpen(false)
+    } catch (e) {
+      setJsonError(e.message || 'Invalid JSON')
+    }
+  }
 
   return (
     <div style={{
@@ -95,6 +244,100 @@ export function SchemaCard({ schema, onConfirm, loading }) {
             </p>
           )}
 
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+            gap: 10,
+          }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              Edit any row with the pencil icon, or edit full schema JSON.
+            </div>
+            <button
+              onClick={openJsonEditor}
+              style={{
+                padding: '6px 10px',
+                border: '1px solid var(--border-hover)',
+                borderRadius: 'var(--radius)',
+                color: 'var(--teal)',
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              Edit JSON
+            </button>
+          </div>
+
+          {jsonEditOpen && (
+            <div style={{
+              border: '1px solid var(--border-hover)',
+              borderRadius: 'var(--radius)',
+              background: 'rgba(14,17,24,0.9)',
+              padding: 10,
+              marginBottom: 12,
+            }}>
+              <textarea
+                value={jsonDraft}
+                onChange={(e) => setJsonDraft(e.target.value)}
+                rows={14}
+                style={{
+                  width: '100%',
+                  resize: 'vertical',
+                  minHeight: 180,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  color: 'var(--text)',
+                  fontSize: 11,
+                  fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.5,
+                  padding: '8px 10px',
+                }}
+              />
+              {jsonError && (
+                <div style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  color: '#fca5a5',
+                }}>
+                  Invalid JSON: {jsonError}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setJsonEditOpen(false)
+                    setJsonError('')
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    border: '1px solid var(--border-hover)',
+                    borderRadius: 'var(--radius)',
+                    color: 'var(--muted)',
+                    fontSize: 11,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyJsonEdits}
+                  style={{
+                    padding: '6px 10px',
+                    border: '1px solid var(--teal-border)',
+                    borderRadius: 'var(--radius)',
+                    color: '#080a0f',
+                    background: 'var(--teal)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  Apply JSON Changes
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Column list */}
           <div style={{ marginBottom: 16 }}>
             <div style={{
@@ -107,13 +350,38 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 <span key={i} style={{ fontSize: 10, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
               ))}
             </div>
-            {localSchema.columns?.map((col, i) => (
+            {hasColumns && localSchema.columns?.map((col, i) => (
               <ColRow key={i} col={col} onChange={(updated) => {
-                const cols = [...localSchema.columns]
-                cols[i] = updated
-                setLocalSchema({ ...localSchema, columns: cols })
+                let cols = [...localSchema.columns]
+
+                if (updated.is_label) {
+                  cols = cols.map((existing, idx) => (
+                    idx === i ? updated : { ...existing, is_label: false }
+                  ))
+                } else {
+                  cols[i] = updated
+                  if (!cols.some(c => c.is_label)) {
+                    cols[i] = { ...cols[i], is_label: true }
+                  }
+                }
+
+                const labelCol = cols.find(c => c.is_label)?.name || cols[0]?.name || localSchema.label_column
+                setLocalSchema({ ...localSchema, columns: cols, label_column: labelCol })
               }} />
             ))}
+            {!hasColumns && (
+              <div style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: '#fca5a5',
+                padding: '8px 10px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid rgba(248,113,113,0.28)',
+                background: 'rgba(248,113,113,0.08)',
+              }}>
+                No schema options were generated for this response. Use Regenerate to request a fresh schema.
+              </div>
+            )}
           </div>
 
           {/* Row count */}
@@ -137,7 +405,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={handleConfirm}
-              disabled={loading}
+              disabled={loading || !hasColumns}
               style={{
                 flex: 1,
                 padding: '9px 16px',
@@ -148,13 +416,13 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 fontSize: 12,
                 fontWeight: 500,
                 fontFamily: 'var(--font-mono)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
+                cursor: loading || !hasColumns ? 'not-allowed' : 'pointer',
+                opacity: loading || !hasColumns ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
               <Check size={13} />
-              {loading ? 'Generating…' : 'Confirm & Generate'}
+              {loading ? 'Generating…' : hasColumns ? 'Confirm & Generate' : 'No Options Available'}
             </button>
             <button
               onClick={() => setLocalSchema(schema)}

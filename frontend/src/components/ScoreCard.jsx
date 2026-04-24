@@ -17,7 +17,7 @@ function ScoreBar({ value }) {
 }
 
 export function ScoreCard({ result }) {
-  const { learnability_score, best_model, task_type, model_scores, summary, rows_used, features_used } = result
+  const { learnability_score, best_model, task_type, model_scores, summary, rows_used, features_used, error } = result
   const score = Math.round(learnability_score)
   const color = score >= 75 ? '#4dd9ac' : score >= 50 ? '#f5c842' : '#f87171'
 
@@ -41,6 +41,20 @@ export function ScoreCard({ result }) {
           <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>{summary}</div>
         </div>
       </div>
+
+      {error && (
+        <div style={{
+          marginBottom: 12,
+          padding: '8px 10px',
+          background: 'rgba(248,113,113,0.08)',
+          border: '1px solid rgba(248,113,113,0.25)',
+          borderRadius: 4,
+          fontSize: 11,
+          color: '#fca5a5',
+        }}>
+          {error}
+        </div>
+      )}
 
       {/* Per-model breakdown */}
       {model_scores?.length > 0 && (

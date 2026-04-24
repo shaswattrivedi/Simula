@@ -1,14 +1,38 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Plus, UploadCloud, Zap, ChevronRight } from 'lucide-react'
+import { Plus, UploadCloud, Zap, ChevronRight, RotateCcw } from 'lucide-react'
 import { useChat, STAGE } from './hooks/useChat'
 import { Message } from './components/Message'
 import { api } from './lib/api'
 
-const SUGGESTED = [
-  'IoT crowd monitoring system with PIR sensors and camera feed',
-  'Social engineering detection — phishing, pretexting, baiting, impersonation, tailgating',
-  'Predictive maintenance for industrial equipment with vibration and temperature sensors',
-  'Chemical compound toxicity classification across multiple assays',
+const MODES = [
+  {
+    id: "simulate",
+    label: "Simulate",
+    tag: "No data? Start here.",
+    description: "Describe your project in plain language. Simula builds a schema and generates a complete labeled dataset from scratch — no existing data needed.",
+    example: "e.g. I'm building an IoT crowd monitoring system with PIR sensors",
+  },
+  {
+    id: "repair",
+    label: "Repair",
+    tag: "Broken dataset?",
+    description: "Upload a CSV with NaN values, class imbalance, outliers, or encoding issues. Simula diagnoses and fixes it, returning a clean ready-to-train file.",
+    example: "e.g. My Tox21 dataset has NaN values across multiple assay columns",
+  },
+  {
+    id: "augment",
+    label: "Augment",
+    tag: "Not enough data?",
+    description: "Have a small dataset? Simula expands it using SMOTE and time-series-aware augmentation — preserving structure while filling gaps and balancing classes.",
+    example: "e.g. I have 200 labelled phishing emails but need at least 2000",
+  },
+  {
+    id: "validate",
+    label: "Validate",
+    tag: "How good is your data?",
+    description: "Upload or generate a dataset and get a Learnability Score — a benchmark of how well your data can train a model, with model recommendations.",
+    example: "e.g. Score my synthetic sensor dataset before I start training",
+  },
 ]
 
 function Sidebar({ stage, apiCalls, onReset, onRepair }) {
@@ -141,8 +165,8 @@ function Spinner() {
 }
 
 export default function App() {
-  const { messages, stage, schema, questions, score, apiCalls,
-          setSchema, sendPrompt, sendAnswers, confirmAndGenerate, reset } = useChat()
+  const { messages, stage, schema, questions, score, apiCalls, canRetry, retryKind,
+          setSchema, sendPrompt, sendAnswers, retryLast, confirmAndGenerate, reset } = useChat()
 
   const [input, setInput] = useState('')
   const [repairLoading, setRepairLoading] = useState(false)
@@ -157,8 +181,22 @@ export default function App() {
 
   const handleSend = () => {
     if (!input.trim() || loading) return
-    sendPrompt(input.trim())
+
+    const text = input.trim()
+    const rescoreIntent = /(learnabil|re[-\s]?score|score\s+(again|test\s+again|once\s+more)|rerun\s+.*scor|run\s+.*scor\s+again)/i
+    if (rescoreIntent.test(text) && canRetry && retryKind === 'score') {
+      retryLast()
+      setInput('')
+      return
+    }
+
+    sendPrompt(text)
     setInput('')
+  }
+
+  const handleRetry = () => {
+    if (loading || !canRetry) return
+    retryLast()
   }
 
   const handleRepairFile = async (e) => {
@@ -208,38 +246,51 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Suggestions */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 10, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-                  Try one of these
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 10, color: "var(--muted-2)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+                  What do you want to do?
                 </div>
-                {SUGGESTED.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setInput(s); }}
+                {MODES.map((mode) => (
+                  <div
+                    key={mode.id}
+                    onClick={() => setInput(mode.example.replace("e.g. ", ""))}
                     style={{
-                      padding: '10px 14px',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius)',
-                      background: 'transparent',
-                      color: 'var(--muted)',
-                      fontSize: 12, lineHeight: 1.5,
-                      textAlign: 'left',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
-                      transition: 'all 0.15s',
+                      padding: "14px 16px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      background: "transparent",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      textAlign: "left",
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = 'var(--border-hover)'
-                      e.currentTarget.style.color = 'var(--text)'
+                      e.currentTarget.style.borderColor = "var(--teal-border)"
+                      e.currentTarget.style.background = "var(--teal-dim)"
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'var(--border)'
-                      e.currentTarget.style.color = 'var(--muted)'
+                      e.currentTarget.style.borderColor = "var(--border)"
+                      e.currentTarget.style.background = "transparent"
                     }}
                   >
-                    <span>{s}</span>
-                    <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                  </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>
+                        {mode.label}
+                      </span>
+                      <span style={{
+                        fontSize: 10, padding: "2px 7px", borderRadius: 999,
+                        background: "var(--teal-dim)", color: "var(--teal)",
+                        border: "1px solid var(--teal-border)",
+                      }}>
+                        {mode.tag}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6, marginBottom: 5 }}>
+                      {mode.description}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted-2)", fontStyle: "italic" }}>
+                      {mode.example}
+                    </div>
+                  </div>
                 ))}
               </div>
 
@@ -278,6 +329,8 @@ export default function App() {
                     questions={isLast ? questions : null}
                     onConfirm={confirmAndGenerate}
                     onAnswers={sendAnswers}
+                    onRetry={handleRetry}
+                    canRetry={isLast && canRetry && !loading}
                     loading={loading}
                   />
                 )
@@ -333,6 +386,31 @@ export default function App() {
               }}
             />
             <button
+              onClick={handleRetry}
+              disabled={!canRetry || loading}
+              title="Retry / Regenerate last prompt"
+              aria-label="Retry or regenerate"
+              style={{
+                padding: '9px 10px',
+                background: canRetry && !loading ? 'var(--surface)' : 'var(--surface-2)',
+                color: canRetry && !loading ? 'var(--teal)' : 'var(--muted-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                cursor: canRetry && !loading ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                if (!canRetry || loading) return
+                e.currentTarget.style.borderColor = 'var(--teal-border)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'var(--border)'
+              }}
+            >
+              <RotateCcw size={13} />
+            </button>
+            <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
               style={{
@@ -356,7 +434,7 @@ export default function App() {
             maxWidth: 680, margin: '6px auto 0',
             fontSize: 10, color: 'var(--muted-2)', textAlign: 'center',
           }}>
-            Enter to send · Shift+Enter for new line · ⌘+Enter to submit answers
+            Enter to send · Shift+Enter for new line · Use ⟲ to retry or regenerate
           </div>
         </div>
       </div>

@@ -38,18 +38,28 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ schema, row_count: rowCount }),
     })
-    if (!res.ok) throw new Error('Generation failed')
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Generation failed' }))
+      throw new Error(err.detail || 'Generation failed')
+    }
     const blob = await res.blob()
+    const csvText = await blob.text()
     const name = schema.schema_name?.replace(/\s+/g, '_').toLowerCase() + '.csv' || 'simula_dataset.csv'
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = name; a.click()
     URL.revokeObjectURL(url)
+    return { csvText, fileName: name }
   },
 
   // Score dataset
   score(schema, rowCount = null) {
     return post('/api/score', { schema, row_count: rowCount })
+  },
+
+  // Score exact generated CSV dataset
+  scoreFromCsv(schema, csvData) {
+    return post('/api/score/csv', { schema, csv_data: csvData })
   },
 
   // Repair — file upload
