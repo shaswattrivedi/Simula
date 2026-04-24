@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Plus, UploadCloud, Zap, ChevronRight, RotateCcw } from 'lucide-react'
+import { Plus, UploadCloud, Zap, RotateCcw } from 'lucide-react'
 import { useChat, STAGE } from './hooks/useChat'
 import { Message } from './components/Message'
 import { api } from './lib/api'
@@ -35,53 +35,161 @@ const MODES = [
   },
 ]
 
-function Sidebar({ stage, apiCalls, onReset, onRepair }) {
+const SIDEBAR_MODES = [
+  { label: 'Simulate', desc: 'Draft data from plain language.', active: true },
+  { label: 'Repair', desc: 'Clean and rebalance CSVs.', active: true },
+  { label: 'Augment', desc: 'Expand sparse datasets.', active: false },
+  { label: 'Validate', desc: 'Score learnability quickly.', active: true },
+]
+
+function Sidebar({ apiCalls, onReset, onRepair, compact }) {
   const [health, setHealth] = useState(null)
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => {})
   }, [])
 
+  if (compact) {
+    return (
+      <div style={{
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--surface)',
+        boxShadow: 'var(--ring-soft)',
+        padding: '12px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: 'var(--teal)',
+            boxShadow: '0 0 0 1px rgba(201,100,66,0.2)',
+          }} />
+          <div>
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 22,
+              lineHeight: 1,
+              letterSpacing: '-0.01em',
+              color: 'var(--text)',
+            }}>
+              Simula
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--muted-2)' }}>Editorial Lab</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={onRepair}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '7px 9px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-hover)',
+              background: 'var(--surface-2)',
+              color: 'var(--muted)',
+              fontSize: 11,
+            }}
+          >
+            <UploadCloud size={12} />
+            Repair
+          </button>
+          <button
+            onClick={onReset}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '7px 9px',
+              borderRadius: '10px',
+              border: '1px solid var(--teal-border)',
+              background: 'var(--teal)',
+              color: 'var(--accent)',
+              fontSize: 11,
+            }}
+          >
+            <Plus size={12} />
+            New
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{
-      width: 220, flexShrink: 0,
+      width: 248,
+      flexShrink: 0,
       borderRight: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column',
-      padding: '20px 0',
+      background: 'var(--surface)',
+      boxShadow: 'var(--ring-soft)',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '24px 0',
     }}>
       {/* Logo */}
-      <div style={{ padding: '0 18px 24px' }}>
+      <div style={{ padding: '0 20px 24px' }}>
         <div style={{
           fontFamily: 'var(--font-display)',
-          fontSize: 22, letterSpacing: '-0.01em',
-          color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 34,
+          lineHeight: 1,
+          letterSpacing: '-0.012em',
+          color: 'var(--text)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
         }}>
           <div style={{
-            width: 8, height: 8, borderRadius: '50%',
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
             background: 'var(--teal)',
-            boxShadow: '0 0 8px var(--teal)',
+            boxShadow: '0 0 0 1px rgba(201,100,66,0.2)',
           }} />
           Simula
         </div>
-        <div style={{ fontSize: 10, color: 'var(--muted-2)', marginTop: 2, letterSpacing: '0.06em' }}>
-          v1.0 · phase 1
+        <div style={{
+          fontSize: 11,
+          color: 'var(--muted)',
+          marginTop: 6,
+          letterSpacing: '0.03em',
+          lineHeight: 1.45,
+        }}>
+          Thoughtful synthetic data design,
+          <br />
+          with a warmer interface.
         </div>
       </div>
 
       {/* New session */}
-      <div style={{ padding: '0 10px 16px' }}>
+      <div style={{ padding: '0 12px 18px' }}>
         <button
           onClick={onReset}
           style={{
-            width: '100%', padding: '8px 12px',
+            width: '100%',
+            padding: '9px 12px',
             border: '1px solid var(--border-hover)',
-            borderRadius: 'var(--radius)',
+            borderRadius: '12px',
+            background: 'var(--surface-2)',
             color: 'var(--muted)', fontSize: 12,
             display: 'flex', alignItems: 'center', gap: 7,
             transition: 'all 0.15s',
+            boxShadow: 'var(--ring-soft)',
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--teal-border)'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--teal-border)'
+            e.currentTarget.style.color = 'var(--text)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border-hover)'
+            e.currentTarget.style.color = 'var(--muted)'
+          }}
         >
           <Plus size={12} />
           New session
@@ -89,33 +197,51 @@ function Sidebar({ stage, apiCalls, onReset, onRepair }) {
       </div>
 
       {/* Modes */}
-      <div style={{ padding: '0 10px', flex: 1 }}>
-        <div style={{ fontSize: 9, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, paddingLeft: 6 }}>
+      <div style={{ padding: '0 12px', flex: 1 }}>
+        <div style={{
+          fontSize: 10,
+          color: 'var(--muted-2)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.11em',
+          marginBottom: 10,
+          paddingLeft: 8,
+        }}>
           Modes
         </div>
-        {[
-          { label: 'Simulate',       desc: 'No data? Generate.',    active: true },
-          { label: 'Repair',         desc: 'Fix quality issues.',   active: false },
-          { label: 'Augment',        desc: 'Expand small datasets.', active: false },
-          { label: 'Validate',       desc: 'Score learnability.',   active: true },
-        ].map(m => (
+        {SIDEBAR_MODES.map(m => (
           <div
             key={m.label}
             onClick={m.label === 'Repair' ? onRepair : undefined}
             style={{
-              padding: '6px 8px', borderRadius: 'var(--radius)',
-              marginBottom: 2, cursor: m.active ? 'pointer' : 'default',
+              padding: '8px 10px',
+              borderRadius: '12px',
+              marginBottom: 6,
+              cursor: m.active ? 'pointer' : 'default',
               opacity: m.active ? 1 : 0.4,
-              display: 'flex', gap: 8, alignItems: 'center',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              border: '1px solid var(--border)',
+              background: m.active ? 'var(--accent)' : 'transparent',
+              boxShadow: m.active ? 'var(--ring-soft)' : 'none',
             }}
           >
             <div style={{
-              width: 5, height: 5, borderRadius: '50%',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
               background: m.active ? 'var(--teal)' : 'var(--muted-2)',
             }} />
             <div>
-              <div style={{ fontSize: 12, color: 'var(--text)' }}>{m.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--muted-2)' }}>{m.desc}</div>
+              <div style={{
+                fontSize: 13,
+                color: 'var(--text)',
+                fontFamily: 'var(--font-display)',
+                lineHeight: 1.2,
+              }}>
+                {m.label}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted-2)', marginTop: 2 }}>{m.desc}</div>
             </div>
           </div>
         ))}
@@ -123,11 +249,17 @@ function Sidebar({ stage, apiCalls, onReset, onRepair }) {
 
       {/* Stats */}
       <div style={{
-        padding: '14px 18px 0',
+        padding: '16px 20px 0',
         borderTop: '1px solid var(--border)',
         marginTop: 'auto',
       }}>
-        <div style={{ fontSize: 10, color: 'var(--muted-2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <div style={{
+          fontSize: 10,
+          color: 'var(--muted-2)',
+          marginBottom: 10,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+        }}>
           Session
         </div>
         {[
@@ -135,12 +267,12 @@ function Sidebar({ stage, apiCalls, onReset, onRepair }) {
           ['Backend', health ? '●  live' : '○  —'],
           ['Cache', health?.cache ? `${health.cache.entries} entries` : '—'],
         ].map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>{k}</span>
             <span style={{
               fontSize: 11,
               fontFamily: 'var(--font-mono)',
-              color: k === 'Backend' && health ? '#4dd9ac' : 'var(--muted)',
+              color: k === 'Backend' && health ? 'var(--teal)' : 'var(--muted)',
             }}>{v}</span>
           </div>
         ))}
@@ -155,7 +287,7 @@ function Spinner() {
       {[0, 0.15, 0.3].map((d, i) => (
         <div key={i} style={{
           width: 5, height: 5, borderRadius: '50%',
-          background: 'var(--teal)',
+          background: i === 1 ? 'var(--amber)' : 'var(--teal)',
           animation: `pulse 1.2s ease-in-out ${d}s infinite`,
         }} />
       ))}
@@ -170,10 +302,17 @@ export default function App() {
 
   const [input, setInput] = useState('')
   const [repairLoading, setRepairLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 980)
   const bottomRef = useRef(null)
   const fileRef   = useRef(null)
 
   const loading = [STAGE.LOADING, STAGE.GENERATING, STAGE.SCORING].includes(stage)
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 980)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -216,78 +355,132 @@ export default function App() {
   const isEmpty = messages.length === 0
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      height: '100vh',
+      overflow: 'hidden',
+      background: 'var(--bg)',
+      color: 'var(--text)',
+    }}>
       <Sidebar
-        stage={stage}
         apiCalls={apiCalls}
         onReset={reset}
         onRepair={() => fileRef.current?.click()}
+        compact={isMobile}
       />
       <input ref={fileRef} type="file" accept=".csv" onChange={handleRepairFile} style={{ display: 'none' }} />
 
       {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minWidth: 0,
+      }}>
 
         {/* Chat area */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: isMobile ? '20px 14px 24px' : '36px 40px 28px',
+        }}>
           {isEmpty ? (
-            <div style={{ maxWidth: 580, margin: '60px auto 0' }}>
-              <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div style={{ maxWidth: 760, margin: isMobile ? '12px auto 0' : '42px auto 0' }}>
+              <div style={{ textAlign: 'center', marginBottom: isMobile ? 30 : 46 }}>
                 <div style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 40, letterSpacing: '-0.02em',
-                  color: 'var(--text)', lineHeight: 1.1,
-                  marginBottom: 12,
+                  fontSize: isMobile ? 'clamp(2rem, 8vw, 2.6rem)' : 'clamp(2.6rem, 6vw, 3.8rem)',
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text)',
+                  lineHeight: 1.12,
+                  marginBottom: 14,
                 }}>
-                  Start from <span style={{ fontStyle: 'italic', color: 'var(--teal)' }}>zero.</span>
+                  Begin from a <span style={{ fontStyle: 'italic', color: 'var(--teal)' }}>brief.</span>
                 </div>
-                <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}>
-                  Describe what you're building. Simula generates the training dataset you need — no existing data required.
+                <p style={{
+                  fontSize: isMobile ? 14 : 16,
+                  color: 'var(--muted)',
+                  lineHeight: 1.66,
+                  maxWidth: 640,
+                  margin: '0 auto',
+                }}>
+                  Sketch your project in plain language. Simula turns that brief into a trainable dataset,
+                  then helps you repair, expand, and validate it.
                 </p>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ fontSize: 10, color: "var(--muted-2)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: 12,
+              }}>
+                <div style={{
+                  gridColumn: '1 / -1',
+                  fontSize: 10,
+                  color: 'var(--muted-2)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.11em',
+                  marginBottom: 2,
+                }}>
                   What do you want to do?
                 </div>
                 {MODES.map((mode) => (
                   <div
                     key={mode.id}
-                    onClick={() => setInput(mode.example.replace("e.g. ", ""))}
+                    onClick={() => setInput(mode.example.replace('e.g. ', ''))}
                     style={{
-                      padding: "14px 16px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius)",
-                      background: "transparent",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      textAlign: "left",
+                      padding: '16px 16px 14px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '14px',
+                      background: 'var(--surface)',
+                      cursor: 'pointer',
+                      transition: 'all 0.16s',
+                      textAlign: 'left',
+                      boxShadow: 'var(--ring-soft)',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = "var(--teal-border)"
-                      e.currentTarget.style.background = "var(--teal-dim)"
+                      e.currentTarget.style.borderColor = 'var(--teal-border)'
+                      e.currentTarget.style.background = 'var(--accent)'
+                      e.currentTarget.style.transform = 'translateY(-1px)'
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = "var(--border)"
-                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.background = 'var(--surface)'
+                      e.currentTarget.style.transform = 'translateY(0)'
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                      <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                      <span style={{
+                        fontFamily: 'var(--font-display)',
+                        fontSize: 22,
+                        lineHeight: 1.05,
+                        color: 'var(--text)',
+                      }}>
                         {mode.label}
                       </span>
                       <span style={{
-                        fontSize: 10, padding: "2px 7px", borderRadius: 999,
-                        background: "var(--teal-dim)", color: "var(--teal)",
-                        border: "1px solid var(--teal-border)",
+                        fontSize: 10,
+                        padding: '3px 7px',
+                        borderRadius: 999,
+                        background: 'var(--teal-dim)',
+                        color: 'var(--teal)',
+                        border: '1px solid var(--teal-border)',
+                        letterSpacing: '0.03em',
                       }}>
                         {mode.tag}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6, marginBottom: 5 }}>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.58, marginBottom: 6 }}>
                       {mode.description}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--muted-2)", fontStyle: "italic" }}>
+                    <div style={{
+                      fontSize: 11,
+                      color: 'var(--muted-2)',
+                      fontStyle: 'italic',
+                      lineHeight: 1.5,
+                    }}>
                       {mode.example}
                     </div>
                   </div>
@@ -299,25 +492,33 @@ export default function App() {
                 onClick={() => fileRef.current?.click()}
                 disabled={repairLoading}
                 style={{
-                  marginTop: 20, width: '100%',
-                  padding: '10px 14px',
-                  border: '1px dashed var(--border)',
-                  borderRadius: 'var(--radius)',
-                  background: 'transparent',
-                  color: 'var(--muted-2)',
+                  marginTop: 20,
+                  width: '100%',
+                  padding: '11px 14px',
+                  border: '1px dashed var(--border-hover)',
+                  borderRadius: '12px',
+                  background: 'var(--surface-2)',
+                  color: 'var(--muted)',
                   fontSize: 12,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   transition: 'all 0.15s',
+                  boxShadow: 'var(--ring-soft)',
                 }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--teal-border)'
+                  e.currentTarget.style.color = 'var(--text)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--border-hover)'
+                  e.currentTarget.style.color = 'var(--muted)'
+                }}
               >
                 <UploadCloud size={13} />
                 {repairLoading ? 'Repairing…' : 'Upload a broken CSV to repair it'}
               </button>
             </div>
           ) : (
-            <div style={{ maxWidth: 680, margin: '0 auto' }}>
+            <div style={{ maxWidth: 760, margin: '0 auto' }}>
               {messages.map((msg, i) => {
                 const isLast = i === messages.length - 1
                 return (
@@ -344,12 +545,18 @@ export default function App() {
         {/* Input bar */}
         <div style={{
           borderTop: '1px solid var(--border)',
-          padding: '14px 40px',
-          background: 'var(--bg)',
+          padding: isMobile ? '12px 10px 14px' : '14px 30px 18px',
+          background: 'linear-gradient(180deg, rgba(250,248,241,0.7) 0%, rgba(245,242,232,0.95) 100%)',
         }}>
           <div style={{
-            maxWidth: 680, margin: '0 auto',
+            maxWidth: 760,
+            margin: '0 auto',
             display: 'flex', gap: 10, alignItems: 'flex-end',
+            padding: 8,
+            borderRadius: '16px',
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            boxShadow: 'var(--whisper)',
           }}>
             <textarea
               value={input}
@@ -359,21 +566,28 @@ export default function App() {
               disabled={loading}
               style={{
                 flex: 1,
-                background: 'var(--surface)',
+                background: 'var(--accent)',
                 border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
+                borderRadius: '12px',
                 color: 'var(--text)',
-                fontSize: 13, lineHeight: 1.6,
-                padding: '9px 13px',
+                fontSize: 14,
+                lineHeight: 1.55,
+                padding: '10px 13px',
                 resize: 'none',
                 outline: 'none',
                 maxHeight: 140,
                 overflow: 'auto',
                 opacity: loading ? 0.5 : 1,
-                transition: 'border-color 0.15s',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
               }}
-              onFocus={e => e.target.style.borderColor = 'var(--border-hover)'}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              onFocus={e => {
+                e.target.style.borderColor = 'var(--teal-border)'
+                e.target.style.boxShadow = 'var(--ring-soft)'
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = 'var(--border)'
+                e.target.style.boxShadow = 'none'
+              }}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -391,14 +605,15 @@ export default function App() {
               title="Retry / Regenerate last prompt"
               aria-label="Retry or regenerate"
               style={{
-                padding: '9px 10px',
-                background: canRetry && !loading ? 'var(--surface)' : 'var(--surface-2)',
+                padding: '10px 11px',
+                background: canRetry && !loading ? 'var(--surface-2)' : 'var(--surface-3)',
                 color: canRetry && !loading ? 'var(--teal)' : 'var(--muted-2)',
                 border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
+                borderRadius: '12px',
                 cursor: canRetry && !loading ? 'pointer' : 'not-allowed',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.15s',
+                boxShadow: 'var(--ring-soft)',
               }}
               onMouseEnter={e => {
                 if (!canRetry || loading) return
@@ -414,25 +629,28 @@ export default function App() {
               onClick={handleSend}
               disabled={!input.trim() || loading}
               style={{
-                padding: '9px 14px',
-                background: input.trim() && !loading ? 'var(--teal)' : 'var(--surface-2)',
-                color: input.trim() && !loading ? '#080a0f' : 'var(--muted-2)',
+                padding: '10px 15px',
+                background: input.trim() && !loading ? 'var(--teal)' : 'var(--surface-3)',
+                color: input.trim() && !loading ? 'var(--accent)' : 'var(--muted-2)',
                 border: 'none',
-                borderRadius: 'var(--radius)',
+                borderRadius: '12px',
                 cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
                 display: 'flex', alignItems: 'center', gap: 5,
-                fontSize: 12, fontFamily: 'var(--font-mono)',
+                fontSize: 12, fontFamily: 'var(--font-sans)',
                 transition: 'all 0.15s',
                 whiteSpace: 'nowrap',
+                boxShadow: input.trim() && !loading ? '0 0 0 1px rgba(201,100,66,0.28)' : 'var(--ring-soft)',
               }}
             >
               <Zap size={12} />
-              Simulate
+              Generate
             </button>
           </div>
           <div style={{
-            maxWidth: 680, margin: '6px auto 0',
+            maxWidth: 760,
+            margin: isMobile ? '8px auto 0' : '7px auto 0',
             fontSize: 10, color: 'var(--muted-2)', textAlign: 'center',
+            padding: '0 6px',
           }}>
             Enter to send · Shift+Enter for new line · Use ⟲ to retry or regenerate
           </div>

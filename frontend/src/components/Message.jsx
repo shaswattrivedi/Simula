@@ -12,10 +12,13 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
         <div style={{
           maxWidth: '72%',
           background: 'var(--surface-2)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg) var(--radius-lg) 2px var(--radius-lg)',
-          padding: '9px 13px',
-          fontSize: 13, lineHeight: 1.6, color: 'var(--text)',
+          border: '1px solid var(--border-hover)',
+          borderRadius: 'var(--radius-lg) var(--radius-lg) 4px var(--radius-lg)',
+          padding: '10px 13px',
+          fontSize: 14,
+          lineHeight: 1.6,
+          color: 'var(--text)',
+          boxShadow: 'var(--ring-soft)',
         }}>
           {msg.content}
         </div>
@@ -27,11 +30,11 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
     return (
       <div style={{
         display: 'flex', gap: 8, alignItems: 'flex-start',
-        color: '#f87171', fontSize: 12, marginBottom: 16,
-        padding: '8px 10px',
-        background: 'rgba(248,113,113,0.08)',
-        border: '1px solid rgba(248,113,113,0.2)',
-        borderRadius: 'var(--radius)',
+        color: 'var(--error)', fontSize: 12, marginBottom: 16,
+        padding: '9px 11px',
+        background: 'var(--error-dim)',
+        border: '1px solid rgba(181, 51, 51, 0.24)',
+        borderRadius: '12px',
       }}>
         <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ flex: 1 }}>{msg.content}</span>
@@ -45,8 +48,9 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
               width: 24,
               height: 24,
               borderRadius: '50%',
-              border: '1px solid rgba(248,113,113,0.28)',
-              color: '#fca5a5',
+              border: '1px solid rgba(181, 51, 51, 0.28)',
+              color: 'var(--error)',
+              background: 'rgba(250, 249, 245, 0.5)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -74,15 +78,17 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
         <div style={{
-          width: 20, height: 20, borderRadius: '50%',
-          background: 'linear-gradient(135deg, rgba(77,217,172,0.3), rgba(77,217,172,0.1))',
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(201,100,66,0.25), rgba(201,100,66,0.08))',
           border: '1px solid var(--teal-border)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0, marginTop: 1,
         }}>
           <Terminal size={9} color="var(--teal)" />
         </div>
-        <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>
+        <span style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.62 }}>
           {msg.content}
         </span>
       </div>
@@ -101,10 +107,12 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-hover)',
+            background: 'var(--surface)',
             borderRadius: '999px',
             padding: '4px 8px',
             opacity: loading ? 0.5 : 1,
+            boxShadow: 'var(--ring-soft)',
           }}
         >
           <RotateCcw size={11} />

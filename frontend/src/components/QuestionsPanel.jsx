@@ -13,6 +13,8 @@ export function QuestionsPanel({ questions, onSubmit, loading }) {
     <div style={{
       border: '1px solid var(--border-hover)',
       borderRadius: 'var(--radius-lg)',
+      background: 'var(--surface)',
+      boxShadow: 'var(--ring-soft)',
       overflow: 'hidden',
       marginTop: 4,
     }}>
@@ -27,7 +29,7 @@ export function QuestionsPanel({ questions, onSubmit, loading }) {
             }}>
               {String(i + 1).padStart(2, '0')}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6 }}>{q.question}</span>
+            <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.62 }}>{q.question}</span>
           </div>
         ))}
       </div>
@@ -41,10 +43,10 @@ export function QuestionsPanel({ questions, onSubmit, loading }) {
           rows={4}
           style={{
             width: '100%', padding: '8px 10px',
-            background: 'var(--surface)',
+            background: 'var(--accent)',
             border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--text)', fontSize: 12,
+            borderRadius: '12px',
+            color: 'var(--text)', fontSize: 13,
             resize: 'vertical', outline: 'none',
             lineHeight: 1.6,
           }}
@@ -58,13 +60,14 @@ export function QuestionsPanel({ questions, onSubmit, loading }) {
             disabled={!answers.trim() || loading}
             style={{
               padding: '7px 14px',
-              background: answers.trim() && !loading ? 'var(--teal)' : 'rgba(255,255,255,0.06)',
-              color: answers.trim() && !loading ? '#080a0f' : 'var(--muted)',
-              borderRadius: 'var(--radius)',
-              fontSize: 11, fontFamily: 'var(--font-mono)',
+              background: answers.trim() && !loading ? 'var(--teal)' : 'var(--surface-3)',
+              color: answers.trim() && !loading ? 'var(--accent)' : 'var(--muted)',
+              borderRadius: '12px',
+              fontSize: 11, fontFamily: 'var(--font-sans)',
               display: 'flex', alignItems: 'center', gap: 5,
               transition: 'all 0.15s',
               cursor: answers.trim() && !loading ? 'pointer' : 'not-allowed',
+              boxShadow: answers.trim() && !loading ? '0 0 0 1px rgba(201,100,66,0.28)' : 'var(--ring-soft)',
             }}
           >
             <Send size={11} />

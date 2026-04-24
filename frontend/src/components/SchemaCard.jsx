@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Edit2, RotateCcw, X } from 'lucide-react'
 
 const TYPE_COLORS = {
-  float:     '#4dd9ac',
-  int:       '#4dd9ac',
-  category:  '#f5c842',
-  boolean:   '#f5c842',
-  timestamp: '#a78bfa',
-  text:      '#f87171',
+  float:     '#c96442',
+  int:       '#c96442',
+  category:  '#7d8567',
+  boolean:   '#7d8567',
+  timestamp: '#9a7a52',
+  text:      '#b53333',
 }
 
 const TYPE_OPTIONS = ['float', 'int', 'category', 'boolean', 'timestamp', 'text']
@@ -16,19 +16,19 @@ const DISTRIBUTIONS_BY_TYPE = {
   int: ['poisson', 'normal', 'uniform'],
   category: ['categorical'],
   boolean: ['bernoulli'],
-  timestamp: ['uniform'],
+  timestamp: ['timestamp'],
   text: ['categorical'],
 }
 
 const inputStyle = {
   width: '100%',
-  background: 'var(--surface)',
+  background: 'var(--accent)',
   border: '1px solid var(--border)',
-  borderRadius: 4,
+  borderRadius: 8,
   color: 'var(--text)',
-  fontSize: 11,
+  fontSize: 12,
   lineHeight: 1.3,
-  padding: '4px 6px',
+  padding: '5px 7px',
 }
 
 function ColRow({ col, onChange }) {
@@ -78,7 +78,7 @@ function ColRow({ col, onChange }) {
       gridTemplateColumns: '1fr 80px 100px 1fr auto',
       gap: 8,
       padding: '8px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
+      borderBottom: '1px solid var(--border)',
       alignItems: 'center',
     }}>
       {editing ? (
@@ -132,7 +132,7 @@ function ColRow({ col, onChange }) {
             <button
               onClick={handleCancel}
               title="Cancel"
-              style={{ color: '#fca5a5', padding: 2, borderRadius: 3, opacity: 0.9 }}
+              style={{ color: 'var(--error)', padding: 2, borderRadius: 3, opacity: 0.9 }}
             >
               <X size={12} />
             </button>
@@ -145,7 +145,7 @@ function ColRow({ col, onChange }) {
             {col.is_label && <span style={{ fontSize: 10, color: 'var(--teal)', marginLeft: 6, opacity: 0.7 }}>label</span>}
           </span>
           <span style={{
-            fontSize: 10, padding: '2px 6px', borderRadius: 3,
+            fontSize: 10, padding: '2px 6px', borderRadius: 999,
             background: (TYPE_COLORS[col.type] || '#888') + '18',
             color: TYPE_COLORS[col.type] || '#888',
             fontFamily: 'var(--font-mono)',
@@ -206,7 +206,8 @@ export function SchemaCard({ schema, onConfirm, loading }) {
     <div style={{
       border: '1px solid var(--teal-border)',
       borderRadius: 'var(--radius-lg)',
-      background: 'rgba(77,217,172,0.04)',
+      background: 'var(--surface)',
+      boxShadow: 'var(--whisper)',
       overflow: 'hidden',
       marginTop: 4,
     }}>
@@ -225,7 +226,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
           background: 'var(--teal)', flexShrink: 0
         }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>
+          <div style={{ fontSize: 20, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: 'var(--text)' }}>
             {localSchema.schema_name || 'Generated Schema'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
@@ -239,7 +240,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
         <div style={{ padding: '0 16px 16px' }}>
           {/* Description */}
           {localSchema.description && (
-            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '12px 0 10px', fontStyle: 'italic' }}>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '13px 0 10px', fontStyle: 'italic', lineHeight: 1.58 }}>
               {localSchema.description}
             </p>
           )}
@@ -260,9 +261,11 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 padding: '6px 10px',
                 border: '1px solid var(--border-hover)',
                 borderRadius: 'var(--radius)',
+                background: 'var(--surface-2)',
                 color: 'var(--teal)',
                 fontSize: 11,
                 fontFamily: 'var(--font-mono)',
+                boxShadow: 'var(--ring-soft)',
               }}
             >
               Edit JSON
@@ -273,7 +276,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
             <div style={{
               border: '1px solid var(--border-hover)',
               borderRadius: 'var(--radius)',
-              background: 'rgba(14,17,24,0.9)',
+              background: 'var(--surface-2)',
               padding: 10,
               marginBottom: 12,
             }}>
@@ -285,7 +288,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                   width: '100%',
                   resize: 'vertical',
                   minHeight: 180,
-                  background: 'var(--surface)',
+                  background: 'var(--accent)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
                   color: 'var(--text)',
@@ -299,7 +302,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 <div style={{
                   marginTop: 8,
                   fontSize: 11,
-                  color: '#fca5a5',
+                  color: 'var(--error)',
                 }}>
                   Invalid JSON: {jsonError}
                 </div>
@@ -314,6 +317,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                     padding: '6px 10px',
                     border: '1px solid var(--border-hover)',
                     borderRadius: 'var(--radius)',
+                    background: 'var(--surface-3)',
                     color: 'var(--muted)',
                     fontSize: 11,
                   }}
@@ -326,7 +330,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                     padding: '6px 10px',
                     border: '1px solid var(--teal-border)',
                     borderRadius: 'var(--radius)',
-                    color: '#080a0f',
+                    color: 'var(--accent)',
                     background: 'var(--teal)',
                     fontSize: 11,
                     fontWeight: 600,
@@ -373,11 +377,11 @@ export function SchemaCard({ schema, onConfirm, loading }) {
               <div style={{
                 marginTop: 10,
                 fontSize: 12,
-                color: '#fca5a5',
+                color: 'var(--error)',
                 padding: '8px 10px',
                 borderRadius: 'var(--radius)',
-                border: '1px solid rgba(248,113,113,0.28)',
-                background: 'rgba(248,113,113,0.08)',
+                border: '1px solid rgba(181, 51, 51, 0.24)',
+                background: 'var(--error-dim)',
               }}>
                 No schema options were generated for this response. Use Regenerate to request a fresh schema.
               </div>
@@ -410,15 +414,16 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 flex: 1,
                 padding: '9px 16px',
                 background: 'var(--teal)',
-                color: '#080a0f',
+                color: 'var(--accent)',
                 border: 'none',
                 borderRadius: 'var(--radius)',
                 fontSize: 12,
                 fontWeight: 500,
-                fontFamily: 'var(--font-mono)',
+                fontFamily: 'var(--font-sans)',
                 cursor: loading || !hasColumns ? 'not-allowed' : 'pointer',
                 opacity: loading || !hasColumns ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                boxShadow: '0 0 0 1px rgba(201,100,66,0.28)',
               }}
             >
               <Check size={13} />
@@ -431,8 +436,10 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 padding: '9px 12px',
                 border: '1px solid var(--border-hover)',
                 borderRadius: 'var(--radius)',
+                background: 'var(--surface-2)',
                 color: 'var(--muted)',
                 fontSize: 12,
+                boxShadow: 'var(--ring-soft)',
               }}
             >
               <RotateCcw size={13} />
