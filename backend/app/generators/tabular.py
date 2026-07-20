@@ -16,11 +16,29 @@ def _generate_column(col_spec: dict, n: int) -> np.ndarray:
     dist   = col_spec.get("distribution", "normal")
     params = col_spec.get("params", {})
     dtype  = col_spec.get("type", "float")
+    col_name = col_spec.get("name", "").lower()
+
+    # -- EARLY SEMANTIC OVERRIDES --
+    # Forces generation into categories even if LLM said it was "normal" or "float"
+    if any(w in col_name for w in ["platform", "name", "username", "author", "product", "category", "city", "country", "type", "event"]):
+        dist = "categorical"
+    
+    if any(w in col_name for w in ["is_", "has_", "churn"]) or "label" in col_name:
+        dist = "categorical" if "label" in col_name else "bernoulli"
+
+    if "id" in col_name and len(col_name) <= 15:
+        prefix = col_name.split("_id")[0].upper() if "_id" in col_name else "ID"
+        prefix = prefix or "ID"
+        if prefix == "USER":
+            return np.random.choice([f"UID_00{i}" for i in range(1, 11)], size=n)
+        return np.array([f"{prefix}_{i+1:04d}" for i in range(n)])
 
     if dist == "normal":
         mean = params.get("mean", 0.0)
         std  = params.get("std", 1.0)
         data = stats.norm.rvs(loc=mean, scale=std, size=n)
+        if any(w in col_name for w in ["amount", "price", "value", "cost", "revenue", "frequency", "time", "days"]):
+            data = np.abs(data)
 
     elif dist == "uniform":
         low  = params.get("low", 0.0)
@@ -42,17 +60,21 @@ def _generate_column(col_spec: dict, n: int) -> np.ndarray:
 
     elif dist == "categorical":
         categories = params.get("categories", [])
-        # If no categories provided, generate sensible defaults from column name
         if not categories:
-            col_name = col_spec.get("name", "value").lower()
-            if "id" in col_name:
-                categories = [f"{col_name.upper()}_{i:03d}" for i in range(1, 6)]
+            if "platform" in col_name:
+                categories = ["YouTube", "Twitter/X", "TikTok", "Instagram", "LinkedIn"]
+            elif any(w in col_name for w in ["username", "influencer", "author", "creator"]):
+                categories = ["MKBHD", "Mrwhosetheboss", "LinusTechTips", "Dave2D", "UrAvgConsumer", "Austin Evans", "UnboxTherapy", "iJustine", "JerryRig", "SnazzyLabs"]
+            elif "event" in col_name or "type" in col_name:
+                categories = ["Tech Review", "Unboxing", "Tutorial", "Podcast", "Live Event", "Sponsorship"]
             elif "status" in col_name or "state" in col_name:
                 categories = ["active", "inactive", "pending", "error"]
             elif "level" in col_name or "risk" in col_name:
                 categories = ["low", "medium", "high", "critical"]
-            elif "type" in col_name:
-                categories = ["type_A", "type_B", "type_C"]
+            elif "product" in col_name:
+                categories = ["product_alpha", "product_beta", "product_gamma", "product_delta"]
+            elif "name" in col_name:
+                categories = ["Item A", "Item B", "Item C", "Item D"]
             else:
                 categories = ["class_1", "class_2", "class_3"]
         weights = params.get("weights", None)
@@ -167,13 +189,22 @@ def generate_tabular(schema: dict, n_rows: int) -> pd.DataFrame:
         name = col["name"]
         if name not in df.columns:
             continue
+            
+        col_name_lower = name.lower()
+        if "id" in col_name_lower and len(col_name_lower) <= 15:
+            continue
+        
+        # Don't accidentally corrupt coerced categories back into floats/NaNs
+        if any(w in col_name_lower for w in ["platform", "name", "username", "author", "product", "category", "city", "country", "type", "event"]):
+            continue
+            
         dtype = col.get("type", "float")
         try:
             if dtype == "int":
                 df[name] = pd.to_numeric(df[name], errors="coerce").fillna(0).astype(int)
             elif dtype == "float":
                 df[name] = pd.to_numeric(df[name], errors="coerce").fillna(0.0)
-            elif dtype == "boolean":
+            elif dtype == "boolean" and not pd.api.types.is_bool_dtype(df[name]):
                 df[name] = df[name].astype(bool)
         except Exception as e:
             logger.warning(f"[Tabular] Dtype cast failed for {name}: {e}")

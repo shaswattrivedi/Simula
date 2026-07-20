@@ -13,26 +13,22 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DOMAIN_TEMPLATES = {
-    "iot_sensor":           "IoT sensor hardware ESP32 PIR infrared motion detection crowd monitoring people counting inflow outflow",
-    "crowd_monitoring":     "crowd flow people counting occupancy safety score inflow outflow density monitoring",
-    "cybersecurity_attack": "network intrusion detection attack classification DDoS malware botnet anomaly traffic",
-    "phishing_text":        "phishing email social engineering pretexting baiting impersonation scam detection text classification",
-    "honeypot_behavior":    "honeypot attacker behavior analysis session logs lateral movement credential theft cybersecurity",
-    "medical_vitals":       "patient vital signs heart rate blood pressure temperature ECG health monitoring wearable",
-    "medical_diagnosis":    "disease diagnosis classification symptoms lab results clinical notes binary label patient",
-    "drug_compound":        "chemical compound toxicity assay SMILES molecular property prediction drug discovery",
-    "financial_fraud":      "credit card fraud transaction anomaly detection imbalanced binary classification finance",
-    "industrial_iot":       "predictive maintenance vibration temperature sensor factory equipment failure industrial",
-    "nlp_classification":   "text classification sentiment analysis document labeling multi-class NLP language",
-    "time_series_energy":   "smart meter electricity consumption power grid demand forecasting load prediction energy",
-    "retail_behavior":      "customer purchase history clickstream recommendation system churn prediction retail",
-    "smart_city":           "traffic flow pedestrian count air quality noise level urban sensor network city",
-    "agriculture_iot":      "soil moisture temperature humidity crop yield irrigation precision farming agriculture",
-    "biometric_auth":       "fingerprint face recognition gait keystroke behavioral biometrics authentication security",
-    "environmental":        "weather station rainfall wind speed flood detection climate time series environmental",
-    "supply_chain":         "logistics delivery route optimization inventory demand forecasting supply chain",
-    "computer_vision":      "object detection bounding box annotation frame label confidence image camera vision",
-    "autonomous_vehicle":   "LIDAR camera sensor fusion object detection road driving autonomous vehicle dataset",
+    "e_commerce":           "ecommerce retail shopping cart customer purchase history churn recommendation cart abandonment sales",
+    "healthcare":           "patient medical records diagnosis disease hospital length of stay clinical notes health insurance",
+    "finance":              "credit card fraud detection financial transaction credit scoring loan default risk finance banking",
+    "cybersecurity":        "network intrusion detection malware anomaly traffic ddos attack botnet cybersecurity firewall",
+    "natural_language":     "text classification sentiment analysis NLP document labeling customer review chatbot language",
+    "computer_vision":      "image classification object detection bounding box semantic segmentation camera visual recognition",
+    "manufacturing":        "predictive maintenance factory sensor equipment failure industrial iot defect detection production",
+    "human_resources":      "employee performance attrition prediction candidate screening hr retention recruiting salary",
+    "logistics":            "supply chain delivery route optimization inventory demand forecasting logistics shipping transport",
+    "energy":               "smart grid electricity consumption power demand forecasting renewable energy solar wind grid",
+    "real_estate":          "property valuation real estate pricing housing market rent prediction building occupancy",
+    "telecommunications":   "customer churn prediction network latency bandwidth usage telco 5g mobile data telecommunications",
+    "agriculture":          "crop yield prediction precision farming weather impact agricultural soil quality yield analysis",
+    "social_media":         "user engagement virality prediction social network sentiment analysis post reach likes shares",
+    "education":            "student performance prediction dropout prevention exam score grading e-learning education",
+    "streaming_service":    "user retention content recommendation watching habits viewership tracking media streaming"
 }
 
 

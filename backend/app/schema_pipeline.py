@@ -137,7 +137,7 @@ def _default_columns(data_type: str) -> list[dict]:
             {
                 "name": "timestamp",
                 "type": "timestamp",
-                "distribution": "uniform",
+                "distribution": "timestamp",
                 "params": {},
                 "is_label": False,
                 "nullable": False,
@@ -212,7 +212,48 @@ def _default_columns(data_type: str) -> list[dict]:
     ]
 
 
+def _is_underspecified_schema(schema: dict | None) -> bool:
+    if not isinstance(schema, dict):
+        return True
+
+    columns = schema.get("columns")
+    if not isinstance(columns, list) or not columns:
+        return True
+
+    valid_columns = [
+        c for c in columns
+        if isinstance(c, dict) and str(c.get("name", "")).strip()
+    ]
+    if len(valid_columns) <= 1:
+        return True
+
+    names = [str(c.get("name", "")).strip().lower() for c in valid_columns]
+    names_set = set(names)
+    if len(names_set) != len(names):
+        return True
+
+    if names_set.issubset({"timestamp", "label", "target", "y"}):
+        return True
+
+    data_type = str(schema.get("data_type", "")).strip().lower()
+    non_timestamp_cols = [
+        c for c in valid_columns
+        if str(c.get("type", "")).strip().lower() != "timestamp"
+    ]
+
+    if data_type == "time_series":
+        if len(valid_columns) < 4 or len(non_timestamp_cols) < 2:
+            return True
+    elif len(valid_columns) < 3:
+        return True
+
+    return False
+
+
 def _is_template_schema(schema: dict | None) -> bool:
+    if _is_underspecified_schema(schema):
+        return True
+
     if not isinstance(schema, dict):
         return True
 
@@ -245,7 +286,7 @@ def _normalize_schema(schema: dict | None, data_type_hint: str, original_prompt:
         "int": "poisson",
         "category": "categorical",
         "boolean": "bernoulli",
-        "timestamp": "uniform",
+        "timestamp": "timestamp",
         "text": "categorical",
     }
 
@@ -300,7 +341,7 @@ def _normalize_schema(schema: dict | None, data_type_hint: str, original_prompt:
 
         distribution = col.get("distribution") if isinstance(col.get("distribution"), str) else default_dist[col_type]
         distribution = distribution.strip().lower() if isinstance(distribution, str) else default_dist[col_type]
-        if distribution not in {"normal", "uniform", "poisson", "categorical", "bernoulli", "lognormal"}:
+        if distribution not in {"normal", "uniform", "poisson", "categorical", "bernoulli", "lognormal", "timestamp"}:
             distribution = default_dist[col_type]
 
         params = col.get("params") if isinstance(col.get("params"), dict) else {}
@@ -340,6 +381,24 @@ def _normalize_schema(schema: dict | None, data_type_hint: str, original_prompt:
     if not clean_columns:
         logger.warning(
             "[Schema] No valid columns produced by model for prompt '%s'. Using deterministic fallback columns.",
+            original_prompt[:80],
+        )
+        clean_columns = _default_columns(data_type)
+
+    if data_type == "time_series":
+        non_timestamp_cols = [c for c in clean_columns if c.get("type") != "timestamp"]
+        if len(clean_columns) < 4 or len(non_timestamp_cols) < 2:
+            logger.warning(
+                "[Schema] Under-specified time_series schema (%d cols, %d non-timestamp) for prompt '%s'. Using deterministic fallback columns.",
+                len(clean_columns),
+                len(non_timestamp_cols),
+                original_prompt[:80],
+            )
+            clean_columns = _default_columns(data_type)
+    elif len(clean_columns) < 3:
+        logger.warning(
+            "[Schema] Under-specified tabular schema (%d cols) for prompt '%s'. Using deterministic fallback columns.",
+            len(clean_columns),
             original_prompt[:80],
         )
         clean_columns = _default_columns(data_type)
@@ -506,6 +565,51 @@ def _score_summary(score: float, best_model: str, task_type: str, schema_name: s
     )
 
 
+def _default_intent() -> dict:
+    return {
+        "mode": "simulate",
+        "confidence": 0.5,
+        "data_type": "tabular",
+        "schema_sufficient": False,
+        "missing_fields": ["row_entity", "prediction_target"],
+    }
+
+
+def _normalize_intent(intent: object) -> dict:
+    default = _default_intent()
+
+    if not isinstance(intent, dict):
+        return default
+
+    mode = str(intent.get("mode", default["mode"]))
+    mode = mode.strip().lower()
+    if mode not in {"simulate", "repair", "augment"}:
+        mode = default["mode"]
+
+    data_type = str(intent.get("data_type", default["data_type"]))
+    data_type = data_type.strip().lower()
+    if data_type not in {"tabular", "time_series", "event_log", "text"}:
+        data_type = default["data_type"]
+
+    confidence = max(0.0, min(1.0, _safe_float(intent.get("confidence"), default["confidence"])))
+    schema_sufficient = bool(intent.get("schema_sufficient", default["schema_sufficient"]))
+
+    missing_fields_raw = intent.get("missing_fields")
+    if not isinstance(missing_fields_raw, list):
+        missing_fields_raw = default["missing_fields"]
+    missing_fields = [str(field).strip() for field in missing_fields_raw if str(field).strip()]
+    if not missing_fields and not schema_sufficient:
+        missing_fields = default["missing_fields"]
+
+    return {
+        "mode": mode,
+        "confidence": confidence,
+        "data_type": data_type,
+        "schema_sufficient": schema_sufficient,
+        "missing_fields": missing_fields,
+    }
+
+
 # ── MAIN PIPELINE ─────────────────────────────────────────────────────────────
 
 async def classify_intent(user_prompt: str) -> dict:
@@ -519,14 +623,10 @@ async def classify_intent(user_prompt: str) -> dict:
     ]
     raw = await call_llm(messages, CallType.CHAT, json_mode=True, max_tokens=300)
     try:
-        return json.loads(raw)
+        return _normalize_intent(json.loads(raw))
     except (json.JSONDecodeError, TypeError):
         logger.error(f"[Schema] Intent parse failed: {_raw_preview(raw)}")
-        return {
-            "mode": "simulate", "confidence": 0.5,
-            "data_type": "tabular", "schema_sufficient": False,
-            "missing_fields": ["row_entity", "prediction_target"]
-        }
+        return _default_intent()
 
 
 async def get_all_questions(missing_fields: list[str], domain_hints: list[str]) -> list[dict]:
@@ -581,19 +681,23 @@ async def generate_schema(
     domain_hints: list[str],
     user_answers: dict,
     data_type: str,
+    force_refresh: bool = False,
 ) -> dict:
     """
     Strategy: CACHE CHECK FIRST — if cache hit, 0 API calls.
     On miss: Qwen3-235B (1 call) + cache the result.
     """
     # Strategy 2: Check cache before calling Qwen3
-    cached = schema_cache.get(original_prompt, domain_hints)
-    if cached:
-        if _is_template_schema(cached):
-            logger.warning("[Schema] Cache hit contains generic template schema. Regenerating for richer output.")
-        else:
-            logger.info("[Schema] Cache hit — skipping Qwen3 call.")
-            return cached
+    if force_refresh:
+        logger.info("[Schema] Force refresh requested. Bypassing cache lookup.")
+    else:
+        cached = schema_cache.get(original_prompt, domain_hints)
+        if cached:
+            if _is_template_schema(cached):
+                logger.warning("[Schema] Cache hit contains generic/template schema. Regenerating for richer output.")
+            else:
+                logger.info("[Schema] Cache hit — skipping Qwen3 call.")
+                return cached
 
     # Build rich context for Qwen3
     answers_text = "\n".join(f"  {k}: {v}" for k, v in user_answers.items()) if user_answers else "  (none)"
@@ -696,6 +800,8 @@ async def run_schema_pipeline(
     user_prompt: str,
     user_answers_text: str | None = None,
     prior_questions: list[dict] | None = None,
+    force_regenerate: bool = False,
+    is_edit: bool = False,
 ) -> dict:
     """
     Orchestrates the full schema pipeline with all strategies applied.
@@ -715,19 +821,39 @@ async def run_schema_pipeline(
     """
     api_calls = 0
 
-    # Step 1: HF embedding — 1 call, no credit consumption
-    domain_hints = await get_domain_hints(user_prompt)
-    # Note: HF CPU embedding does NOT count against OpenRouter budget
+    if is_edit:
+        logger.info("[Pipeline] Edit requested. Bypassing intent check.")
+        domain_hints = []
+        intent = {
+            "mode": "simulate",
+            "confidence": 1.0,
+            "data_type": "tabular",
+            "schema_sufficient": True,
+            "missing_fields": [],
+        }
+    else:
+        # Step 1: HF embedding — 1 call, no credit consumption
+        domain_hints = await get_domain_hints(user_prompt)
+        
+        # Step 2: Intent classification — 1 DeepSeek call
+        intent = await classify_intent(user_prompt)
+        intent = _normalize_intent(intent)
+        api_calls += 1
+        logger.info(f"[Pipeline] Intent: {intent}")
 
-    # Step 2: Intent classification — 1 DeepSeek call
-    intent = await classify_intent(user_prompt)
-    api_calls += 1
-    logger.info(f"[Pipeline] Intent: {intent}")
+    mode = str(intent.get("mode", "simulate"))
+    data_type = str(intent.get("data_type", "tabular"))
+    schema_sufficient = bool(intent.get("schema_sufficient", False))
+    missing_fields = intent.get("missing_fields") if isinstance(intent.get("missing_fields"), list) else []
 
     # Step 3a: If schema is sufficient → go straight to Qwen3
-    if intent["schema_sufficient"] and not prior_questions:
+    if schema_sufficient and not prior_questions:
         schema = await generate_schema(
-            user_prompt, domain_hints, {}, intent["data_type"]
+            user_prompt,
+            domain_hints,
+            {},
+            data_type,
+            force_refresh=force_regenerate,
         )
         # Qwen3 call only if cache miss
         api_calls += 0 if schema_cache.get(user_prompt, domain_hints) else 1
@@ -735,19 +861,19 @@ async def run_schema_pipeline(
             "stage": "schema_ready",
             "schema": schema,
             "domain_hints": domain_hints,
-            "mode": intent["mode"],
+            "mode": mode,
             "api_calls_made": api_calls,
         }
 
     # Step 3b: Questions needed — collapsed loop, 1 DeepSeek call
     if not user_answers_text:
-        questions = await get_all_questions(intent["missing_fields"], domain_hints)
+        questions = await get_all_questions(missing_fields, domain_hints)
         api_calls += 1
         return {
             "stage": "questions_needed",
             "questions": questions,
             "domain_hints": domain_hints,
-            "mode": intent["mode"],
+            "mode": mode,
             "api_calls_made": api_calls,
         }
 
@@ -757,7 +883,11 @@ async def run_schema_pipeline(
 
     # Step 5: Schema generation — 0-1 Qwen3 calls (cache-aware)
     schema = await generate_schema(
-        user_prompt, domain_hints, answers, intent["data_type"]
+        user_prompt,
+        domain_hints,
+        answers,
+        data_type,
+        force_refresh=force_regenerate,
     )
     is_cache_hit = schema_cache.get(user_prompt, domain_hints) is not None
     api_calls += 0 if is_cache_hit else 1
@@ -766,7 +896,7 @@ async def run_schema_pipeline(
         "stage": "schema_ready",
         "schema": schema,
         "domain_hints": domain_hints,
-        "mode": intent["mode"],
+        "mode": mode,
         "api_calls_made": api_calls,
     }
 

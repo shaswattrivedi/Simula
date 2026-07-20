@@ -20,15 +20,20 @@ def _inject_events(signal: np.ndarray, events: list[dict], n: int) -> np.ndarray
 
         event_indices = np.where(np.random.rand(n) < prob)[0]
         for idx in event_indices:
+            history = signal[:idx + 1]
+            scale = float(np.std(history)) if history.size else 1.0
+            if not np.isfinite(scale) or scale == 0:
+                scale = 1.0
+
             if sig == "spike":
                 # Instant spike
                 window = min(5, n - idx)
                 decay  = np.exp(-np.arange(window))
-                signal[idx:idx + window] += magnitude * np.std(signal[:idx+1] or [1]) * decay
+                signal[idx:idx + window] += magnitude * scale * decay
 
             elif sig == "step":
                 # Permanent level shift
-                signal[idx:] += magnitude * np.std(signal[:idx+1] or [1])
+                signal[idx:] += magnitude * scale
 
             elif sig == "oscillation":
                 # Short burst of oscillation

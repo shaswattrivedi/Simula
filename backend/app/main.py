@@ -88,6 +88,8 @@ class ChatRequest(BaseModel):
     prompt: str
     user_answers: str | None = None
     prior_questions: list[dict] | None = None
+    force_regenerate: bool = False
+    is_edit: bool = False
 
 class ConfirmSchemaRequest(BaseModel):
     schema: dict               # Confirmed (possibly edited) schema from frontend card
@@ -157,6 +159,8 @@ async def chat(req: ChatRequest):
             user_prompt=req.prompt.strip(),
             user_answers_text=req.user_answers,
             prior_questions=req.prior_questions,
+            force_regenerate=req.force_regenerate,
+            is_edit=req.is_edit,
         )
     except RuntimeError as e:
         err_text = str(e)
