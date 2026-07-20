@@ -15,11 +15,13 @@ async function post(path, body) {
 
 export const api = {
   // Schema pipeline — main chat endpoint
-  chat(prompt, userAnswers = null, priorQuestions = null) {
+  chat(prompt, userAnswers = null, priorQuestions = null, forceRegenerate = false, isEdit = false) {
     return post('/api/chat', {
       prompt,
       user_answers: userAnswers,
       prior_questions: priorQuestions,
+      force_regenerate: forceRegenerate,
+      is_edit: isEdit,
     })
   },
 

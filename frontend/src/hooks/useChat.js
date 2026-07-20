@@ -43,7 +43,8 @@ export function useChat() {
     setRetryKind(action?.kind || null)
   }, [])
 
-  const runChatRequest = useCallback(async (request, userVisibleText = null) => {
+  const runChatRequest = useCallback(async (request, userVisibleText = null, options = {}) => {
+    const forceRegenerate = Boolean(options?.forceRegenerate)
     if (!request?.prompt) return
 
     if (userVisibleText) push(userMsg(userVisibleText))
@@ -53,7 +54,9 @@ export function useChat() {
       const result = await api.chat(
         request.prompt,
         request.userAnswers ?? null,
-        request.priorQuestions ?? null
+        request.priorQuestions ?? null,
+        forceRegenerate,
+        request.isEdit || false
       )
       setApiCalls(c => c + result.api_calls_made)
 
@@ -136,23 +139,31 @@ export function useChat() {
     }
   }, [push, runScoring, setRetryAction])
 
-  // ── SEND INITIAL PROMPT ─────────────────────────────────────────────────
   const sendPrompt = useCallback(async (prompt) => {
     if (!prompt.trim() || [STAGE.LOADING, STAGE.GENERATING, STAGE.SCORING].includes(stage)) return
 
     const normalizedPrompt = prompt.trim()
-    originalPromptRef.current = normalizedPrompt
+    let finalPrompt = normalizedPrompt
+    let isEdit = false
+
+    if ((stage === STAGE.SCHEMA || stage === STAGE.DONE) && schema) {
+      finalPrompt = `Modify the following dataset schema according to this new instruction: "${normalizedPrompt}". Output the complete updated schema. Existing Schema:\n${JSON.stringify(schema)}`
+      isEdit = true
+    } else {
+      originalPromptRef.current = normalizedPrompt
+    }
 
     lastRequestRef.current = {
-      prompt: normalizedPrompt,
+      prompt: finalPrompt,
       userAnswers: null,
       priorQuestions: null,
+      isEdit: isEdit,
     }
     setRetryAction({ kind: 'chat' })
     lastGeneratedDatasetRef.current = null
 
     await runChatRequest(lastRequestRef.current, normalizedPrompt)
-  }, [stage, runChatRequest, setRetryAction])
+  }, [stage, schema, runChatRequest, setRetryAction])
 
   // ── SEND ANSWERS TO QUESTIONS ───────────────────────────────────────────
   const sendAnswers = useCallback(async (answersText) => {
@@ -180,7 +191,8 @@ export function useChat() {
 
     if (action.kind === 'chat') {
       if (!lastRequestRef.current) return
-      await runChatRequest(lastRequestRef.current)
+      const forceRegenerate = [STAGE.SCHEMA, STAGE.QUESTIONS].includes(stage)
+      await runChatRequest(lastRequestRef.current, null, { forceRegenerate })
       return
     }
 
@@ -226,7 +238,7 @@ export function useChat() {
 
   return {
     messages, stage, schema, questions, score, apiCalls, canRetry, retryKind,
-    setSchema,
+    setSchema, setMessages,
     sendPrompt, sendAnswers, retryLast, confirmAndGenerate, reset,
   }
 }

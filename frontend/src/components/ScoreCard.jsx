@@ -2,7 +2,7 @@ import React from 'react'
 import { Award, AlertTriangle } from 'lucide-react'
 
 function ScoreBar({ value }) {
-  const color = value >= 75 ? '#c96442' : value >= 50 ? '#9a7a52' : '#b53333'
+  const color = value >= 75 ? 'var(--teal)' : value >= 50 ? 'var(--amber)' : 'var(--error)'
   return (
     <div style={{ background: 'var(--surface-2)', borderRadius: 6, height: 7, overflow: 'hidden' }}>
       <div style={{
@@ -19,11 +19,11 @@ function ScoreBar({ value }) {
 export function ScoreCard({ result }) {
   const { learnability_score, best_model, task_type, model_scores, summary, rows_used, features_used, error } = result
   const score = Math.round(learnability_score)
-  const color = score >= 75 ? '#c96442' : score >= 50 ? '#9a7a52' : '#b53333'
+  const color = score >= 75 ? 'var(--teal)' : score >= 50 ? 'var(--amber)' : 'var(--error)'
 
   return (
     <div style={{
-      border: `1px solid ${color}30`,
+      border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       background: 'var(--surface)',
       padding: 16,
@@ -37,7 +37,7 @@ export function ScoreCard({ result }) {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 22, lineHeight: 1.15, fontFamily: 'var(--font-display)', color: 'var(--text)', marginBottom: 4 }}>
-            Learnability Score
+            Dataset Quality
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>{summary}</div>
         </div>
@@ -57,37 +57,35 @@ export function ScoreCard({ result }) {
         </div>
       )}
 
-      {/* Per-model breakdown */}
+      {/* Heuristic Checklist breakdown */}
       {model_scores?.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-          {model_scores.map((m, i) => (
-            <div key={i}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{
-                  fontSize: 12,
-                  color: m.model === best_model ? 'var(--teal)' : 'var(--muted)',
-                  fontFamily: m.model === best_model ? 'var(--font-display)' : 'var(--font-sans)',
-                }}>
-                  {m.model === best_model && <Award size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />}
-                  {m.model}
-                </span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
-                  {(m.score * 100).toFixed(1)}%
-                </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16, background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10 }}>
+          {model_scores.map((m, i) => {
+            const isGood = m.score >= 0.8
+            return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)' }}>
+              <div style={{ 
+                width: 16, height: 16, borderRadius: '50%', 
+                background: isGood ? 'var(--teal-dim)' : 'var(--error-dim)', 
+                color: isGood ? 'var(--teal)' : 'var(--error)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 'bold'
+              }}>
+                 {isGood ? '✓' : '!'}
               </div>
-              <ScoreBar value={m.score * 100} />
+              {m.model}
             </div>
-          ))}
+          )})}
         </div>
       )}
 
       {/* Metadata row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
         {[
-          ['task', task_type],
-          ['rows scored', rows_used?.toLocaleString()],
-          ['features', features_used],
-          ['best fit', best_model],
+          ['quality check', task_type],
+          ['rows validated', rows_used?.toLocaleString()],
+          ['columns', features_used],
+          ['status', best_model],
         ].map(([k, v]) => (
           <div key={k}>
             <div style={{ fontSize: 9, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{k}</div>
@@ -105,8 +103,8 @@ export function ScoreCard({ result }) {
         fontSize: 10, color: 'var(--muted)',
         display: 'flex', gap: 6, alignItems: 'flex-start',
       }}>
-        <AlertTriangle size={10} style={{ flexShrink: 0, marginTop: 2 }} />
-        This score measures internal dataset learnability — not real-world model accuracy. Validate against real data when available.
+        <Award size={10} style={{ flexShrink: 0, marginTop: 2, color: 'var(--teal)' }} />
+        This dataset was procedurally validated for structure, variance, and null boundaries.
       </div>
     </div>
   )

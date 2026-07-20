@@ -81,7 +81,7 @@ export function Message({ msg, stage, schema, questions, onConfirm, onAnswers, o
           width: 22,
           height: 22,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, rgba(201,100,66,0.25), rgba(201,100,66,0.08))',
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(99,102,241,0.08))',
           border: '1px solid var(--teal-border)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0, marginTop: 1,

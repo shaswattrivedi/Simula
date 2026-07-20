@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Edit2, RotateCcw, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Edit2, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 
 const TYPE_COLORS = {
-  float:     '#c96442',
-  int:       '#c96442',
-  category:  '#7d8567',
-  boolean:   '#7d8567',
-  timestamp: '#9a7a52',
-  text:      '#b53333',
+  float: 'var(--teal)',
+  int: 'var(--teal)',
+  category: 'var(--amber)',
+  boolean: 'var(--amber)',
+  timestamp: 'var(--muted)',
+  text: 'var(--error)',
 }
 
 const TYPE_OPTIONS = ['float', 'int', 'category', 'boolean', 'timestamp', 'text']
@@ -31,7 +31,19 @@ const inputStyle = {
   padding: '5px 7px',
 }
 
-function ColRow({ col, onChange }) {
+function ensureSingleLabel(columns) {
+  if (!Array.isArray(columns) || columns.length === 0) return []
+
+  const firstLabelIndex = columns.findIndex(col => Boolean(col?.is_label))
+  const labelIndex = firstLabelIndex >= 0 ? firstLabelIndex : columns.length - 1
+
+  return columns.map((col, idx) => ({
+    ...col,
+    is_label: idx === labelIndex,
+  }))
+}
+
+function ColRow({ col, onChange, onRemove, canRemove }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(col)
 
@@ -145,22 +157,40 @@ function ColRow({ col, onChange }) {
             {col.is_label && <span style={{ fontSize: 10, color: 'var(--teal)', marginLeft: 6, opacity: 0.7 }}>label</span>}
           </span>
           <span style={{
-            fontSize: 10, padding: '2px 6px', borderRadius: 999,
-            background: (TYPE_COLORS[col.type] || '#888') + '18',
-            color: TYPE_COLORS[col.type] || '#888',
+            fontSize: 10,
+            padding: '2px 6px',
+            borderRadius: 999,
+            background: 'var(--surface-2)',
+            color: TYPE_COLORS[col.type] || 'var(--muted)',
             fontFamily: 'var(--font-mono)',
           }}>
             {col.type}
           </span>
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>{col.distribution}</span>
           <span style={{ fontSize: 11, color: 'var(--muted-2)', fontStyle: 'italic' }}>{col.notes}</span>
-          <button
-            onClick={() => setEditing(true)}
-            title="Edit column"
-            style={{ color: 'var(--muted-2)', padding: 2, borderRadius: 3, opacity: 0.8 }}
-          >
-            <Edit2 size={12} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={() => setEditing(true)}
+              title="Edit column"
+              style={{ color: 'var(--muted-2)', padding: 2, borderRadius: 3, opacity: 0.8 }}
+            >
+              <Edit2 size={12} />
+            </button>
+            <button
+              onClick={onRemove}
+              title={canRemove ? 'Remove column' : 'At least one column is required'}
+              disabled={!canRemove}
+              style={{
+                color: canRemove ? 'var(--error)' : 'var(--muted-2)',
+                padding: 2,
+                borderRadius: 3,
+                opacity: canRemove ? 0.8 : 0.45,
+                cursor: canRemove ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -171,35 +201,58 @@ export function SchemaCard({ schema, onConfirm, loading }) {
   const [open, setOpen] = useState(true)
   const [rowCount, setRowCount] = useState(schema.recommended_rows || 1000)
   const [localSchema, setLocalSchema] = useState(schema)
-  const [jsonEditOpen, setJsonEditOpen] = useState(false)
-  const [jsonDraft, setJsonDraft] = useState('')
-  const [jsonError, setJsonError] = useState('')
   const hasColumns = Array.isArray(localSchema.columns) && localSchema.columns.length > 0
+
+  useEffect(() => {
+    setLocalSchema(schema)
+    setRowCount(schema.recommended_rows || 1000)
+  }, [schema])
 
   const handleConfirm = () => {
     if (!hasColumns || loading) return
     onConfirm(localSchema, rowCount)
   }
 
-  const openJsonEditor = () => {
-    setJsonDraft(JSON.stringify(localSchema, null, 2))
-    setJsonError('')
-    setJsonEditOpen(true)
+  const updateColumns = (nextColumns) => {
+    const normalizedCols = ensureSingleLabel(nextColumns)
+    setLocalSchema((prev) => {
+      const labelCol = normalizedCols.find(col => col.is_label)?.name || prev.label_column
+      return { ...prev, columns: normalizedCols, label_column: labelCol }
+    })
   }
 
-  const applyJsonEdits = () => {
-    try {
-      const parsed = JSON.parse(jsonDraft)
-      setLocalSchema(parsed)
-      if (Number.isFinite(Number(parsed?.recommended_rows))) {
-        const nextRows = Math.max(100, Math.min(50000, Number(parsed.recommended_rows)))
-        setRowCount(nextRows)
-      }
-      setJsonError('')
-      setJsonEditOpen(false)
-    } catch (e) {
-      setJsonError(e.message || 'Invalid JSON')
+  const addColumn = () => {
+    const existingColumns = Array.isArray(localSchema.columns) ? localSchema.columns : []
+    const existingNames = new Set(
+      existingColumns
+        .map(col => String(col?.name || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+
+    let suffix = existingColumns.length + 1
+    let nextName = `feature_${suffix}`
+    while (existingNames.has(nextName.toLowerCase())) {
+      suffix += 1
+      nextName = `feature_${suffix}`
     }
+
+    const newColumn = {
+      name: nextName,
+      type: 'float',
+      distribution: 'normal',
+      params: { mean: 0.0, std: 1.0 },
+      is_label: false,
+      nullable: false,
+      notes: 'New feature column',
+    }
+
+    updateColumns([...existingColumns, newColumn])
+  }
+
+  const removeColumnAt = (index) => {
+    const existingColumns = Array.isArray(localSchema.columns) ? localSchema.columns : []
+    if (existingColumns.length <= 1) return
+    updateColumns(existingColumns.filter((_, idx) => idx !== index))
   }
 
   return (
@@ -211,7 +264,6 @@ export function SchemaCard({ schema, onConfirm, loading }) {
       overflow: 'hidden',
       marginTop: 4,
     }}>
-      {/* Header */}
       <div
         style={{
           padding: '12px 16px',
@@ -223,7 +275,7 @@ export function SchemaCard({ schema, onConfirm, loading }) {
       >
         <div style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: 'var(--teal)', flexShrink: 0
+          background: 'var(--teal)', flexShrink: 0,
         }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: 'var(--text)' }}>
@@ -238,7 +290,6 @@ export function SchemaCard({ schema, onConfirm, loading }) {
 
       {open && (
         <div style={{ padding: '0 16px 16px' }}>
-          {/* Description */}
           {localSchema.description && (
             <p style={{ fontSize: 13, color: 'var(--muted)', margin: '13px 0 10px', fontStyle: 'italic', lineHeight: 1.58 }}>
               {localSchema.description}
@@ -253,10 +304,10 @@ export function SchemaCard({ schema, onConfirm, loading }) {
             gap: 10,
           }}>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-              Edit any row with the pencil icon, or edit full schema JSON.
+              Configure your schema columns
             </div>
             <button
-              onClick={openJsonEditor}
+              onClick={addColumn}
               style={{
                 padding: '6px 10px',
                 border: '1px solid var(--border-hover)',
@@ -264,115 +315,55 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 background: 'var(--surface-2)',
                 color: 'var(--teal)',
                 fontSize: 11,
-                fontFamily: 'var(--font-mono)',
+                fontFamily: 'var(--font-sans)',
                 boxShadow: 'var(--ring-soft)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              Edit JSON
+              <Plus size={12} />
+              Add Column
             </button>
           </div>
 
-          {jsonEditOpen && (
-            <div style={{
-              border: '1px solid var(--border-hover)',
-              borderRadius: 'var(--radius)',
-              background: 'var(--surface-2)',
-              padding: 10,
-              marginBottom: 12,
-            }}>
-              <textarea
-                value={jsonDraft}
-                onChange={(e) => setJsonDraft(e.target.value)}
-                rows={14}
-                style={{
-                  width: '100%',
-                  resize: 'vertical',
-                  minHeight: 180,
-                  background: 'var(--accent)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  color: 'var(--text)',
-                  fontSize: 11,
-                  fontFamily: 'var(--font-mono)',
-                  lineHeight: 1.5,
-                  padding: '8px 10px',
-                }}
-              />
-              {jsonError && (
-                <div style={{
-                  marginTop: 8,
-                  fontSize: 11,
-                  color: 'var(--error)',
-                }}>
-                  Invalid JSON: {jsonError}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => {
-                    setJsonEditOpen(false)
-                    setJsonError('')
-                  }}
-                  style={{
-                    padding: '6px 10px',
-                    border: '1px solid var(--border-hover)',
-                    borderRadius: 'var(--radius)',
-                    background: 'var(--surface-3)',
-                    color: 'var(--muted)',
-                    fontSize: 11,
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={applyJsonEdits}
-                  style={{
-                    padding: '6px 10px',
-                    border: '1px solid var(--teal-border)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--accent)',
-                    background: 'var(--teal)',
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
-                  Apply JSON Changes
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Column list */}
           <div style={{ marginBottom: 16 }}>
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 80px 100px 1fr auto',
-              gap: 8, padding: '4px 0 8px',
+              gap: 8,
+              padding: '4px 0 8px',
               borderBottom: '1px solid var(--border)',
             }}>
               {['column', 'type', 'distribution', 'notes', ''].map((h, i) => (
-                <span key={i} style={{ fontSize: 10, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
+                <span key={i} style={{ fontSize: 10, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {h}
+                </span>
               ))}
             </div>
+
             {hasColumns && localSchema.columns?.map((col, i) => (
-              <ColRow key={i} col={col} onChange={(updated) => {
-                let cols = [...localSchema.columns]
+              <ColRow
+                key={i}
+                col={col}
+                canRemove={localSchema.columns.length > 1}
+                onRemove={() => removeColumnAt(i)}
+                onChange={(updated) => {
+                  let cols = [...localSchema.columns]
 
-                if (updated.is_label) {
-                  cols = cols.map((existing, idx) => (
-                    idx === i ? updated : { ...existing, is_label: false }
-                  ))
-                } else {
-                  cols[i] = updated
-                  if (!cols.some(c => c.is_label)) {
-                    cols[i] = { ...cols[i], is_label: true }
+                  if (updated.is_label) {
+                    cols = cols.map((existing, idx) => (
+                      idx === i ? { ...updated, is_label: true } : { ...existing, is_label: false }
+                    ))
+                  } else {
+                    cols[i] = updated
                   }
-                }
 
-                const labelCol = cols.find(c => c.is_label)?.name || cols[0]?.name || localSchema.label_column
-                setLocalSchema({ ...localSchema, columns: cols, label_column: labelCol })
-              }} />
+                  updateColumns(cols)
+                }}
+              />
             ))}
+
             {!hasColumns && (
               <div style={{
                 marginTop: 10,
@@ -388,7 +379,6 @@ export function SchemaCard({ schema, onConfirm, loading }) {
             )}
           </div>
 
-          {/* Row count */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Row count</span>
             <input
@@ -405,7 +395,6 @@ export function SchemaCard({ schema, onConfirm, loading }) {
             </span>
           </div>
 
-          {/* Actions */}
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={handleConfirm}
@@ -423,14 +412,17 @@ export function SchemaCard({ schema, onConfirm, loading }) {
                 cursor: loading || !hasColumns ? 'not-allowed' : 'pointer',
                 opacity: loading || !hasColumns ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                boxShadow: '0 0 0 1px rgba(201,100,66,0.28)',
+                boxShadow: 'var(--ring-soft)',
               }}
             >
               <Check size={13} />
               {loading ? 'Generating…' : hasColumns ? 'Confirm & Generate' : 'No Options Available'}
             </button>
             <button
-              onClick={() => setLocalSchema(schema)}
+              onClick={() => {
+                setLocalSchema(schema)
+                setRowCount(schema.recommended_rows || 1000)
+              }}
               title="Reset to original"
               style={{
                 padding: '9px 12px',
@@ -450,5 +442,3 @@ export function SchemaCard({ schema, onConfirm, loading }) {
     </div>
   )
 }
-
-
